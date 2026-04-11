@@ -1,0 +1,122 @@
+{
+  "project_name": "Amateur Radio QSO Logbook",
+  "domain": "Amateur Radio / Dashboard",
+  "theme": "dark",
+  "archetype": "Archetype 2 (Performance Pro) / Retro-Futurism (The Terminal Look)",
+  "design_philosophy": "A highly technical, instrument-panel aesthetic mimicking the feel of an amateur radio transceiver. It leverages dense data layouts, monospace fonts for alignment, and amber phosphor glows against deep obsidian backgrounds.",
+  "color_system": {
+    "background": "#09090b",
+    "surface": "#121212",
+    "surface_highlight": "#1e1e24",
+    "border": "#27272a",
+    "primary": "#F59E0B",
+    "primary_hover": "#D97706",
+    "primary_foreground": "#09090b",
+    "danger": "#EF4444",
+    "danger_hover": "#DC2626",
+    "success": "#22C55E",
+    "text_primary": "#FAFAFA",
+    "text_secondary": "#A1A1AA",
+    "text_tertiary": "#52525B"
+  },
+  "typography": {
+    "primary_font": "Barlow Condensed",
+    "primary_font_fallback": "sans-serif",
+    "secondary_font": "IBM Plex Mono",
+    "secondary_font_fallback": "monospace",
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl font-bold tracking-tight uppercase",
+      "h2": "text-2xl sm:text-3xl font-semibold tracking-tight uppercase",
+      "h3": "text-xl font-medium tracking-tight uppercase",
+      "body": "text-sm md:text-base font-normal leading-relaxed",
+      "data_labels": "text-xs font-bold uppercase tracking-[0.2em] text-zinc-500",
+      "table_data": "text-sm font-medium tracking-tight text-zinc-200"
+    }
+  },
+  "spacing_and_layout": {
+    "philosophy": "The 'Control Room' Grid - High density, clear hierarchy, every pixel utilized. Avoid soft empty spaces; instead, use structural borders to separate zones.",
+    "container": "max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8",
+    "grid_system": "grid grid-cols-1 lg:grid-cols-12 gap-6",
+    "layout_structure": {
+      "header": "col-span-12 flex justify-between items-center border-b border-zinc-800 pb-4 mb-6",
+      "main_content": "col-span-12 lg:col-span-8 flex flex-col gap-6",
+      "sidebar": "col-span-12 lg:col-span-4 flex flex-col gap-6"
+    }
+  },
+  "surface_strategies": {
+    "cards": "bg-[#121212] border border-zinc-800/80 rounded-none relative overflow-hidden",
+    "inputs": "bg-[#09090b] border border-zinc-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-zinc-100 rounded-none font-mono text-sm",
+    "buttons": "bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none transition-all duration-200 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]",
+    "table": "w-full text-left border-collapse",
+    "table_header": "bg-[#1e1e24] border-b-2 border-zinc-700 text-xs uppercase tracking-widest text-zinc-400 py-3 px-4",
+    "table_row": "border-b border-zinc-800/50 hover:bg-[#1a1a1a] transition-colors"
+  },
+  "components": {
+    "header": {
+      "style": "Fixed or sticky top, solid background (#09090b) with a hard bottom border (#27272a). Features the App Name ('QSO LOG') in large Barlow Condensed, possibly an amber dot to signify 'ON AIR' or 'LIVE'.",
+      "navigation": "Minimalist textual links with amber underline on active state."
+    },
+    "qso_form": {
+      "location": "Sidebar (Right column on desktop, stacked on mobile).",
+      "fields": ["Indicatif (Callsign) - Uppercase forced", "Date - Datepicker/Time", "Fréquence (MHz) - Numeric with step", "Nom - Text"],
+      "style": "Dense form layout. Labels above inputs. Inputs must use IBM Plex Mono to resemble a digital readout. Use Shadcn components heavily customized to remove rounding (rounded-none)."
+    },
+    "qso_table": {
+      "location": "Main Content (Left column).",
+      "style": "A raw, border-collapse table. No cards around individual rows. It should look like an endless terminal log. Use monospace font for the entire table body. Align 'Fréquence' to the right.",
+      "actions": "Hovering over a row reveals 'Edit' and 'Delete' icons (Phosphor Icons) in a subtle muted color, turning amber/red on hover."
+    },
+    "stats_widget": {
+      "style": "Retro LED display vibe. A dark container with a prominent, oversized glowing amber number for 'Total QSOs'. 'text-5xl font-bold tracking-tighter text-amber-500'."
+    },
+    "filters_search": {
+      "style": "Placed above the table. A large, full-width search bar for 'Indicatif' with a leading magnifying glass icon. Filter dropdowns for Date Range and Frequency Bands (e.g., 20m, 40m, 2m)."
+    }
+  },
+  "motion_and_interactions": {
+    "hover_states": "Hard cuts or fast transitions (0.15s). No slow, muddy fades.",
+    "focus_states": "Inputs gain a sharp 1px amber border and a subtle amber box-shadow. No soft blue rings.",
+    "loading": "An ASCII-style loader or a simple blinking amber block cursor (like a terminal terminal)."
+  },
+  "icons_and_assets": {
+    "library": "@phosphor-icons/react",
+    "weight": "regular",
+    "usage_rules": "Use precise, technical icons. 'Broadcast' for frequency, 'CalendarBlank' for date, 'User' for name, 'IdentificationCard' for callsign."
+  },
+  "media": {
+    "images": [
+      {
+        "category": "hero_background",
+        "url": "https://static.prod-images.emergentagent.com/jobs/500d8642-2d5d-4297-bd34-3b17f0d02b71/images/e0e3e37107f1d137531420ab7139bf82af92c29d7f1c906372fd66a1c55aafd0.png",
+        "description": "Subtle, dark-mode abstract background representing radio frequencies, to be used with high opacity mask (e.g. 5-10%) behind the main container to give a 'radio shack' texture."
+      },
+      {
+        "category": "empty_state",
+        "url": "https://static.prod-images.emergentagent.com/jobs/500d8642-2d5d-4297-bd34-3b17f0d02b71/images/0269ce3934d36a628e9a11a54b81dcc1d41264abf64f169ad8fe18dfcd38aa1b.png",
+        "description": "Minimalist vector icon of an amateur radio transmitter. Use this in the center of the table area when there are 0 QSOs logged, adding 'opacity-50' to blend it."
+      }
+    ]
+  },
+  "accessibility_and_testing": {
+    "contrast": "All text must pass WCAG AA against the #09090b background. The primary amber (#F59E0B) against black is highly legible.",
+    "test_ids": [
+      "data-testid='qso-search-input'",
+      "data-testid='qso-add-form'",
+      "data-testid='qso-callsign-input'",
+      "data-testid='qso-freq-input'",
+      "data-testid='qso-submit-button'",
+      "data-testid='qso-table-row'",
+      "data-testid='qso-total-stats'"
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Install `@phosphor-icons/react` for iconography.",
+    "Install Google Fonts `Barlow Condensed` and `IBM Plex Mono` via Google Fonts CDN in index.html.",
+    "Do NOT use standard Shadcn rounded cards. Override Shadcn configurations with `rounded-none` or `rounded-sm` at most.",
+    "Implement the layout with a 12-column CSS Grid. The main list takes 8 columns, the form and stats take 4 columns on the right.",
+    "Use a pure dark theme (no light mode toggle needed as per user request). Background is #09090b.",
+    "For the background, apply the `hero_background` image URL via a fixed div with `opacity-5` or `opacity-10` and `mix-blend-screen` or `mix-blend-overlay` so it doesn't distract from the data.",
+    "Ensure the 'Fréquence' column in the table is right-aligned to make comparing decimal numbers easier.",
+    "Render the Add Form constantly visible on the side rather than hiding it behind a modal, to allow rapid data entry which is crucial for radio contests."
+  ]
+}
