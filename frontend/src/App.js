@@ -12,12 +12,15 @@ import {
   Trash,
   Plus,
   X,
-  Check,
   SignOut,
   Envelope,
   Lock,
   UserPlus,
-  SignIn
+  SignIn,
+  CaretRight,
+  ArrowLeft,
+  Clock,
+  Hash
 } from "@phosphor-icons/react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -25,28 +28,21 @@ import { Label } from "@/components/ui/label";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
-
-// Axios defaults for cookies
 axios.defaults.withCredentials = true;
 
 // === Auth Context ===
 const AuthContext = createContext(null);
-
-function useAuth() {
-  return useContext(AuthContext);
-}
+function useAuth() { return useContext(AuthContext); }
 
 function formatApiError(detail) {
   if (detail == null) return "Une erreur est survenue";
   if (typeof detail === "string") return detail;
-  if (Array.isArray(detail))
-    return detail.map((e) => (e && typeof e.msg === "string" ? e.msg : JSON.stringify(e))).filter(Boolean).join(" ");
-  if (detail && typeof detail.msg === "string") return detail.msg;
+  if (Array.isArray(detail)) return detail.map((e) => e?.msg || JSON.stringify(e)).filter(Boolean).join(" ");
   return String(detail);
 }
 
 function AuthProvider({ children }) {
-  const [user, setUser] = useState(null); // null = checking, false = not auth
+  const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -58,25 +54,17 @@ function AuthProvider({ children }) {
   const login = async (email, password) => {
     const { data } = await axios.post(`${API}/auth/login`, { email, password });
     setUser(data);
-    return data;
   };
-
   const register = async (email, password, callsign) => {
     const { data } = await axios.post(`${API}/auth/register`, { email, password, callsign });
     setUser(data);
-    return data;
   };
-
   const logout = async () => {
     await axios.post(`${API}/auth/logout`);
     setUser(false);
   };
 
-  return (
-    <AuthContext.Provider value={{ user, checking, login, register, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{ user, checking, login, register, logout }}>{children}</AuthContext.Provider>;
 }
 
 // === Login Page ===
@@ -90,14 +78,9 @@ function LoginPage({ onSwitch }) {
     e.preventDefault();
     if (!email || !password) { toast.error("Veuillez remplir tous les champs"); return; }
     setLoading(true);
-    try {
-      await login(email, password);
-      toast.success("Connexion réussie");
-    } catch (err) {
-      toast.error(formatApiError(err.response?.data?.detail));
-    } finally {
-      setLoading(false);
-    }
+    try { await login(email, password); toast.success("Connexion réussie"); }
+    catch (err) { toast.error(formatApiError(err.response?.data?.detail)); }
+    finally { setLoading(false); }
   };
 
   return (
@@ -107,64 +90,29 @@ function LoginPage({ onSwitch }) {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="w-3 h-3 rounded-full bg-amber-500 animate-pulse"></div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight uppercase text-zinc-100">
-              QSO LOG
-            </h1>
+            <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight uppercase text-zinc-100">QSO LOG</h1>
           </div>
           <p className="text-zinc-500 font-mono text-sm uppercase tracking-widest">Carnet de Trafic</p>
         </div>
-
         <div className="bg-[#121212] border border-zinc-800/80 p-6 sm:p-8" data-testid="login-form">
           <h2 className="font-display text-2xl font-semibold tracking-tight uppercase text-zinc-100 mb-6 flex items-center gap-2">
-            <SignIn size={24} className="text-amber-500" />
-            Connexion
+            <SignIn size={24} className="text-amber-500" /> Connexion
           </h2>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2">
-                <Envelope size={14} /> Email
-              </Label>
-              <Input
-                data-testid="login-email-input"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="votre@email.com"
-                className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm"
-              />
+              <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Envelope size={14} /> Email</Label>
+              <Input data-testid="login-email-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="votre@email.com" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
             </div>
-
             <div className="space-y-2">
-              <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2">
-                <Lock size={14} /> Mot de passe
-              </Label>
-              <Input
-                data-testid="login-password-input"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="********"
-                className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm"
-              />
+              <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Lock size={14} /> Mot de passe</Label>
+              <Input data-testid="login-password-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="********" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
             </div>
-
-            <Button
-              data-testid="login-submit-button"
-              type="submit"
-              disabled={loading}
-              className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none h-12 transition-all duration-200 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]"
-            >
+            <Button data-testid="login-submit-button" type="submit" disabled={loading} className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none h-12 transition-all duration-200 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]">
               {loading ? "Connexion..." : "Se connecter"}
             </Button>
           </form>
-
           <div className="mt-6 text-center">
-            <button
-              data-testid="switch-to-register"
-              onClick={onSwitch}
-              className="text-sm text-zinc-500 hover:text-amber-500 font-mono transition-colors"
-            >
+            <button data-testid="switch-to-register" onClick={onSwitch} className="text-sm text-zinc-500 hover:text-amber-500 font-mono transition-colors">
               Pas de compte ? <span className="text-amber-500 underline">S'inscrire</span>
             </button>
           </div>
@@ -187,14 +135,9 @@ function RegisterPage({ onSwitch }) {
     if (!email || !password || !callsign) { toast.error("Veuillez remplir tous les champs"); return; }
     if (password.length < 6) { toast.error("Le mot de passe doit faire au moins 6 caractères"); return; }
     setLoading(true);
-    try {
-      await register(email, password, callsign);
-      toast.success("Inscription réussie");
-    } catch (err) {
-      toast.error(formatApiError(err.response?.data?.detail));
-    } finally {
-      setLoading(false);
-    }
+    try { await register(email, password, callsign); toast.success("Inscription réussie"); }
+    catch (err) { toast.error(formatApiError(err.response?.data?.detail)); }
+    finally { setLoading(false); }
   };
 
   return (
@@ -204,79 +147,34 @@ function RegisterPage({ onSwitch }) {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="w-3 h-3 rounded-full bg-amber-500 animate-pulse"></div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight uppercase text-zinc-100">
-              QSO LOG
-            </h1>
+            <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight uppercase text-zinc-100">QSO LOG</h1>
           </div>
           <p className="text-zinc-500 font-mono text-sm uppercase tracking-widest">Carnet de Trafic</p>
         </div>
-
         <div className="bg-[#121212] border border-zinc-800/80 p-6 sm:p-8" data-testid="register-form">
           <h2 className="font-display text-2xl font-semibold tracking-tight uppercase text-zinc-100 mb-6 flex items-center gap-2">
-            <UserPlus size={24} className="text-amber-500" />
-            Inscription
+            <UserPlus size={24} className="text-amber-500" /> Inscription
           </h2>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2">
-                <IdentificationCard size={14} /> Indicatif Radio
-              </Label>
-              <Input
-                data-testid="register-callsign-input"
-                type="text"
-                value={callsign}
-                onChange={(e) => setCallsign(e.target.value.toUpperCase())}
-                placeholder="Votre indicatif"
-                className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm uppercase"
-              />
-              <p className="text-xs text-zinc-600 font-mono">Votre indicatif unique (ex: F4MVD)</p>
+              <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><IdentificationCard size={14} /> Indicatif Radio</Label>
+              <Input data-testid="register-callsign-input" type="text" value={callsign} onChange={(e) => setCallsign(e.target.value.toUpperCase())} placeholder="Votre indicatif" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm uppercase" />
+              <p className="text-xs text-zinc-600 font-mono">Votre indicatif unique</p>
             </div>
-
             <div className="space-y-2">
-              <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2">
-                <Envelope size={14} /> Email
-              </Label>
-              <Input
-                data-testid="register-email-input"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="votre@email.com"
-                className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm"
-              />
+              <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Envelope size={14} /> Email</Label>
+              <Input data-testid="register-email-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="votre@email.com" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
             </div>
-
             <div className="space-y-2">
-              <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2">
-                <Lock size={14} /> Mot de passe
-              </Label>
-              <Input
-                data-testid="register-password-input"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min. 6 caractères"
-                className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm"
-              />
+              <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Lock size={14} /> Mot de passe</Label>
+              <Input data-testid="register-password-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min. 6 caractères" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
             </div>
-
-            <Button
-              data-testid="register-submit-button"
-              type="submit"
-              disabled={loading}
-              className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none h-12 transition-all duration-200 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]"
-            >
+            <Button data-testid="register-submit-button" type="submit" disabled={loading} className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none h-12 transition-all duration-200 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]">
               {loading ? "Inscription..." : "S'inscrire"}
             </Button>
           </form>
-
           <div className="mt-6 text-center">
-            <button
-              data-testid="switch-to-login"
-              onClick={onSwitch}
-              className="text-sm text-zinc-500 hover:text-amber-500 font-mono transition-colors"
-            >
+            <button data-testid="switch-to-login" onClick={onSwitch} className="text-sm text-zinc-500 hover:text-amber-500 font-mono transition-colors">
               Déjà un compte ? <span className="text-amber-500 underline">Se connecter</span>
             </button>
           </div>
@@ -286,57 +184,19 @@ function RegisterPage({ onSwitch }) {
   );
 }
 
-// === Dashboard (QSO Log) ===
-function Dashboard() {
-  const { user, logout } = useAuth();
-  const [qsos, setQsos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [stats, setStats] = useState({ total: 0 });
-  const [editingId, setEditingId] = useState(null);
-  const [mobileFormOpen, setMobileFormOpen] = useState(false);
-
+// === Add QSO Modal ===
+function AddQSOModal({ callsign, onClose, onAdded }) {
   const [formData, setFormData] = useState({
-    callsign: "",
+    callsign: callsign || "",
     date: new Date().toISOString().split("T")[0],
     frequency: "",
     name: "",
   });
 
-  const [editFormData, setEditFormData] = useState({
-    callsign: "", date: "", frequency: "", name: "",
-  });
-
-  const fetchQsos = useCallback(async () => {
-    try {
-      const params = new URLSearchParams();
-      if (searchTerm) params.append("search", searchTerm);
-      const response = await axios.get(`${API}/qso?${params.toString()}`);
-      setQsos(response.data);
-    } catch (error) {
-      if (error.response?.status !== 401) toast.error("Erreur lors du chargement");
-    } finally {
-      setLoading(false);
-    }
-  }, [searchTerm]);
-
-  const fetchStats = useCallback(async () => {
-    try {
-      const response = await axios.get(`${API}/qso/stats/total`);
-      setStats(response.data);
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    fetchQsos();
-    fetchStats();
-  }, [fetchQsos, fetchStats]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.callsign || !formData.date || !formData.frequency || !formData.name) {
-      toast.error("Veuillez remplir tous les champs");
-      return;
+      toast.error("Veuillez remplir tous les champs"); return;
     }
     try {
       await axios.post(`${API}/qso`, {
@@ -345,319 +205,323 @@ function Dashboard() {
         frequency: parseFloat(formData.frequency),
       });
       toast.success("QSO enregistré");
-      setFormData({ callsign: "", date: new Date().toISOString().split("T")[0], frequency: "", name: "" });
-      fetchQsos();
-      fetchStats();
-      setMobileFormOpen(false);
+      onAdded();
+      onClose();
     } catch (error) {
-      const msg = error.response?.status === 409
-        ? "Cet indicatif est déjà dans la liste"
-        : "Erreur lors de l'ajout";
-      toast.error(msg);
+      toast.error(formatApiError(error.response?.data?.detail));
     }
   };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-[#121212] border border-zinc-800 w-full max-w-md p-6" onClick={(e) => e.stopPropagation()} data-testid="add-qso-modal">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="font-display text-xl font-semibold tracking-tight uppercase text-zinc-100 flex items-center gap-2">
+            <Plus size={20} className="text-amber-500" /> Nouveau QSO
+          </h2>
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 transition-colors" data-testid="close-modal-btn"><X size={20} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><IdentificationCard size={14} /> Indicatif</Label>
+            <Input data-testid="qso-callsign-input" type="text" value={formData.callsign} onChange={(e) => setFormData({ ...formData, callsign: e.target.value.toUpperCase() })}
+              placeholder="F4ABC" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm uppercase" readOnly={!!callsign} />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><CalendarBlank size={14} /> Date</Label>
+            <Input data-testid="qso-date-input" type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Broadcast size={14} /> Fréquence (MHz)</Label>
+            <Input data-testid="qso-freq-input" type="number" step="0.001" value={formData.frequency} onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
+              placeholder="145.500" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><User size={14} /> Nom</Label>
+            <Input data-testid="qso-name-input" type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Jean" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+          </div>
+          <Button data-testid="qso-submit-button" type="submit"
+            className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none h-12 transition-all duration-200 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]">
+            Enregistrer QSO
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// === Contact Detail Panel ===
+function ContactDetail({ callsign, onBack }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+
+  const fetchHistory = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/qso/history/${callsign}`);
+      setData(res.data);
+    } catch { toast.error("Erreur chargement historique"); }
+    finally { setLoading(false); }
+  }, [callsign]);
+
+  useEffect(() => { fetchHistory(); }, [fetchHistory]);
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Supprimer ce QSO ?")) return;
+    if (!window.confirm("Supprimer ce contact ?")) return;
     try {
       await axios.delete(`${API}/qso/${id}`);
-      toast.success("QSO supprimé");
-      fetchQsos();
-      fetchStats();
-    } catch {
-      toast.error("Erreur lors de la suppression");
-    }
+      toast.success("Contact supprimé");
+      fetchHistory();
+    } catch { toast.error("Erreur suppression"); }
   };
 
-  const startEdit = (qso) => {
-    setEditingId(qso.id);
-    setEditFormData({
-      callsign: qso.callsign,
-      date: qso.date,
-      frequency: qso.frequency.toString(),
-      name: qso.name,
-    });
-  };
+  const formatDate = (d) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
-  const cancelEdit = () => { setEditingId(null); };
+  if (loading) return (
+    <div className="p-8 text-center">
+      <div className="inline-block w-4 h-6 bg-amber-500 animate-pulse"></div>
+      <p className="mt-4 text-zinc-500 font-mono text-sm">Chargement...</p>
+    </div>
+  );
 
-  const saveEdit = async (id) => {
+  if (!data) return null;
+
+  return (
+    <div data-testid="contact-detail-panel">
+      {/* Header */}
+      <button onClick={onBack} className="flex items-center gap-2 text-zinc-400 hover:text-amber-500 transition-colors font-mono text-sm mb-6" data-testid="back-to-list-btn">
+        <ArrowLeft size={18} /> Retour à la liste
+      </button>
+
+      {/* Info Card */}
+      <div className="bg-[#121212] border border-zinc-800/80 p-5 sm:p-6 mb-4">
+        <div className="text-3xl sm:text-4xl font-bold text-amber-500 font-mono mb-4 amber-glow" data-testid="detail-callsign">{data.callsign}</div>
+        <div className="text-lg text-zinc-300 font-mono mb-6">{data.name}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-[#09090b] border border-zinc-800 p-4">
+            <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1 flex items-center gap-1"><CalendarBlank size={12} /> Premier contact</div>
+            <div className="text-sm text-zinc-200 font-mono" data-testid="detail-first-contact">{formatDate(data.first_contact)}</div>
+          </div>
+          <div className="bg-[#09090b] border border-zinc-800 p-4">
+            <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1 flex items-center gap-1"><Clock size={12} /> Dernier contact</div>
+            <div className="text-sm text-zinc-200 font-mono" data-testid="detail-last-contact">{formatDate(data.last_contact)}</div>
+          </div>
+          <div className="bg-[#09090b] border border-zinc-800 p-4">
+            <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1 flex items-center gap-1"><Hash size={12} /> Total contacts</div>
+            <div className="text-2xl font-bold text-amber-500 font-mono" data-testid="detail-total-contacts">{data.total_contacts}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Add new contact button */}
+      <Button onClick={() => setShowAddModal(true)} data-testid="add-contact-to-callsign-btn"
+        className="w-full mb-4 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/30 font-bold uppercase tracking-wider rounded-none h-11 transition-all duration-200">
+        <Plus size={16} className="mr-2" /> Ajouter un contact avec {data.callsign}
+      </Button>
+
+      {/* History */}
+      <div className="bg-[#121212] border border-zinc-800/80">
+        <div className="px-5 py-3 border-b border-zinc-800">
+          <h3 className="font-display text-sm font-semibold tracking-tight uppercase text-zinc-400">Historique des contacts</h3>
+        </div>
+        <div className="divide-y divide-zinc-800/50">
+          {data.history.map((qso) => (
+            <div key={qso.id} className="p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors flex items-center justify-between" data-testid="history-entry">
+              <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 font-mono text-sm">
+                <div>
+                  <span className="text-zinc-500 text-xs">Date</span>
+                  <div className="text-zinc-200">{formatDate(qso.date)}</div>
+                </div>
+                <div>
+                  <span className="text-zinc-500 text-xs">Fréquence</span>
+                  <div className="text-zinc-200">{qso.frequency.toFixed(3)} MHz</div>
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <span className="text-zinc-500 text-xs">Nom</span>
+                  <div className="text-zinc-300">{qso.name}</div>
+                </div>
+              </div>
+              <button onClick={() => handleDelete(qso.id)} className="ml-3 p-2 text-zinc-600 hover:text-red-500 transition-colors shrink-0" data-testid="delete-history-entry-btn">
+                <Trash size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {showAddModal && (
+        <AddQSOModal callsign={data.callsign} onClose={() => setShowAddModal(false)} onAdded={fetchHistory} />
+      )}
+    </div>
+  );
+}
+
+// === Dashboard ===
+function Dashboard() {
+  const { user, logout } = useAuth();
+  const [grouped, setGrouped] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [stats, setStats] = useState({ total_qsos: 0, total_callsigns: 0 });
+  const [selectedCallsign, setSelectedCallsign] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addCallsign, setAddCallsign] = useState("");
+
+  const fetchGrouped = useCallback(async () => {
     try {
-      await axios.put(`${API}/qso/${id}`, {
-        ...editFormData,
-        callsign: editFormData.callsign.toUpperCase(),
-        frequency: parseFloat(editFormData.frequency),
-      });
-      toast.success("QSO modifié");
-      setEditingId(null);
-      fetchQsos();
-    } catch {
-      toast.error("Erreur lors de la modification");
-    }
+      const params = new URLSearchParams();
+      if (searchTerm) params.append("search", searchTerm);
+      const res = await axios.get(`${API}/qso/grouped?${params.toString()}`);
+      setGrouped(res.data);
+    } catch (error) {
+      if (error.response?.status !== 401) toast.error("Erreur chargement");
+    } finally { setLoading(false); }
+  }, [searchTerm]);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/qso/stats/total`);
+      setStats(res.data);
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchGrouped(); fetchStats(); }, [fetchGrouped, fetchStats]);
+
+  const formatDate = (d) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+  const handleLogout = async () => { await logout(); toast.success("Déconnexion réussie"); };
+
+  const handleAddFromSearch = () => {
+    setAddCallsign(searchTerm.toUpperCase());
+    setShowAddModal(true);
   };
 
-  const formatDate = (dateStr) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const handleAdded = () => {
+    fetchGrouped();
+    fetchStats();
   };
 
-  const handleLogout = async () => {
-    await logout();
-    toast.success("Déconnexion réussie");
-  };
+  // Vérifier si la recherche correspond exactement à un indicatif existant
+  const searchUpper = searchTerm.toUpperCase().trim();
+  const exactMatch = grouped.find(g => g.callsign === searchUpper);
+  const showAddButton = searchTerm.length >= 2 && !exactMatch;
 
   return (
     <div className="min-h-screen bg-[#09090b] relative">
       <div className="radio-bg"></div>
-      <div className="relative z-10 max-w-[1600px] mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
+      <div className="relative z-10 max-w-[1100px] mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
         {/* Header */}
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-zinc-800 pb-4 mb-6 gap-3" data-testid="app-header">
           <div className="flex items-center gap-3">
             <div className="w-3 h-3 rounded-full bg-amber-500 animate-pulse shrink-0"></div>
-            <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight uppercase text-zinc-100">
-              QSO LOG
-            </h1>
+            <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight uppercase text-zinc-100">QSO LOG</h1>
           </div>
           <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">
             <div className="font-mono text-xs sm:text-sm text-amber-500 tracking-wide" data-testid="user-callsign-display">
               Connecté en tant que <span className="font-bold">{user?.callsign}</span>
             </div>
-            <button
-              data-testid="logout-button"
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-zinc-400 hover:text-red-400 border border-zinc-700 hover:border-red-500/50 transition-all duration-200"
-            >
-              <SignOut size={14} />
-              <span className="hidden sm:inline">Déconnexion</span>
+            <button data-testid="logout-button" onClick={handleLogout}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-zinc-400 hover:text-red-400 border border-zinc-700 hover:border-red-500/50 transition-all duration-200">
+              <SignOut size={14} /> <span className="hidden sm:inline">Déconnexion</span>
             </button>
           </div>
         </header>
 
-        {/* Mobile: Add QSO button */}
-        <div className="lg:hidden mb-4">
-          <Button
-            data-testid="mobile-add-qso-btn"
-            onClick={() => setMobileFormOpen(!mobileFormOpen)}
-            className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none h-12"
-          >
-            <Plus size={18} className="mr-2" />
-            {mobileFormOpen ? "Fermer le formulaire" : "Nouveau QSO"}
-          </Button>
-        </div>
-
-        {/* Mobile: Inline form */}
-        {mobileFormOpen && (
-          <div className="lg:hidden mb-6 bg-[#121212] border border-zinc-800/80 p-4" data-testid="mobile-qso-form">
-            <QSOForm formData={formData} setFormData={setFormData} handleSubmit={handleSubmit} />
-          </div>
-        )}
-
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
-          {/* Main Content */}
-          <main className="col-span-12 lg:col-span-8 flex flex-col gap-4 sm:gap-6 order-2 lg:order-1">
-            {/* Search */}
-            <div className="relative">
-              <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
-              <Input
-                data-testid="qso-search-input"
-                type="text"
-                placeholder="Rechercher par indicatif ou nom..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm h-11 sm:h-12"
-              />
+        {/* If viewing detail */}
+        {selectedCallsign ? (
+          <ContactDetail callsign={selectedCallsign} onBack={() => { setSelectedCallsign(null); fetchGrouped(); fetchStats(); }} />
+        ) : (
+          <>
+            {/* Stats row */}
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6">
+              <div className="bg-[#121212] border border-zinc-800/80 p-4 sm:p-5" data-testid="qso-total-stats">
+                <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1">Indicatifs</div>
+                <div className="text-3xl sm:text-4xl font-bold tracking-tighter text-amber-500 amber-glow font-mono">{stats.total_callsigns}</div>
+              </div>
+              <div className="bg-[#121212] border border-zinc-800/80 p-4 sm:p-5">
+                <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1">Total QSOs</div>
+                <div className="text-3xl sm:text-4xl font-bold tracking-tighter text-amber-500 amber-glow font-mono">{stats.total_qsos}</div>
+              </div>
             </div>
 
-            {/* QSO Table */}
+            {/* Search bar */}
+            <div className="mb-4">
+              <div className="relative">
+                <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
+                <Input data-testid="qso-search-input" type="text" placeholder="Rechercher un indicatif ou un nom..."
+                  value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm h-12" />
+              </div>
+
+              {/* Add callsign button when not found */}
+              {showAddButton && (
+                <button onClick={handleAddFromSearch} data-testid="add-callsign-from-search-btn"
+                  className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/30 font-mono text-sm uppercase tracking-wider transition-all duration-200">
+                  <Plus size={16} /> Ajouter l'indicatif {searchUpper}
+                </button>
+              )}
+            </div>
+
+            {/* Callsign list */}
             <div className="bg-[#121212] border border-zinc-800/80 overflow-hidden">
               {loading ? (
                 <div className="p-8 text-center">
                   <div className="inline-block w-4 h-6 bg-amber-500 animate-pulse"></div>
                   <p className="mt-4 text-zinc-500 font-mono text-sm">Chargement...</p>
                 </div>
-              ) : qsos.length === 0 ? (
+              ) : grouped.length === 0 && !searchTerm ? (
                 <div className="p-8 sm:p-12 text-center" data-testid="qso-empty-state">
-                  <img
-                    src="https://static.prod-images.emergentagent.com/jobs/500d8642-2d5d-4297-bd34-3b17f0d02b71/images/0269ce3934d36a628e9a11a54b81dcc1d41264abf64f169ad8fe18dfcd38aa1b.png"
-                    alt="Radio"
-                    className="w-20 h-20 sm:w-24 sm:h-24 mx-auto opacity-30 mb-4"
-                  />
-                  <p className="text-zinc-500 font-mono text-sm">Aucun QSO enregistré</p>
-                  <p className="text-zinc-600 font-mono text-xs mt-1">Ajoutez votre premier contact</p>
+                  <img src="https://static.prod-images.emergentagent.com/jobs/500d8642-2d5d-4297-bd34-3b17f0d02b71/images/0269ce3934d36a628e9a11a54b81dcc1d41264abf64f169ad8fe18dfcd38aa1b.png"
+                    alt="Radio" className="w-20 h-20 sm:w-24 sm:h-24 mx-auto opacity-30 mb-4" />
+                  <p className="text-zinc-500 font-mono text-sm">Aucun indicatif enregistré</p>
+                  <p className="text-zinc-600 font-mono text-xs mt-1">Recherchez un indicatif pour l'ajouter</p>
+                </div>
+              ) : grouped.length === 0 && searchTerm ? (
+                <div className="p-8 text-center" data-testid="qso-no-results">
+                  <p className="text-zinc-500 font-mono text-sm">Aucun résultat pour "{searchTerm}"</p>
                 </div>
               ) : (
-                <>
-                  {/* Desktop table */}
-                  <div className="hidden sm:block overflow-x-auto">
-                    <table className="qso-table w-full">
-                      <thead>
-                        <tr>
-                          <th>Indicatif</th>
-                          <th>Date</th>
-                          <th className="text-right">Fréquence</th>
-                          <th>Nom</th>
-                          <th className="w-24">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {qsos.map((qso) => (
-                          <tr key={qso.id} data-testid="qso-table-row">
-                            {editingId === qso.id ? (
-                              <>
-                                <td>
-                                  <Input value={editFormData.callsign} onChange={(e) => setEditFormData({ ...editFormData, callsign: e.target.value.toUpperCase() })} className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm h-8 w-28" />
-                                </td>
-                                <td>
-                                  <Input type="date" value={editFormData.date} onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })} className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm h-8 w-32" />
-                                </td>
-                                <td className="text-right">
-                                  <Input type="number" step="0.001" value={editFormData.frequency} onChange={(e) => setEditFormData({ ...editFormData, frequency: e.target.value })} className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm h-8 w-24 text-right" />
-                                </td>
-                                <td>
-                                  <Input value={editFormData.name} onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })} className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm h-8 w-28" />
-                                </td>
-                                <td>
-                                  <div className="flex gap-1">
-                                    <button onClick={() => saveEdit(qso.id)} className="p-1.5 text-green-500 hover:text-green-400 transition-colors" data-testid="qso-save-edit-btn"><Check size={16} /></button>
-                                    <button onClick={cancelEdit} className="p-1.5 text-zinc-500 hover:text-zinc-300 transition-colors" data-testid="qso-cancel-edit-btn"><X size={16} /></button>
-                                  </div>
-                                </td>
-                              </>
-                            ) : (
-                              <>
-                                <td className="font-bold text-amber-500">{qso.callsign}</td>
-                                <td className="text-zinc-400">{formatDate(qso.date)}</td>
-                                <td className="text-right text-zinc-200 tabular-nums">{qso.frequency.toFixed(3)} MHz</td>
-                                <td className="text-zinc-300">{qso.name}</td>
-                                <td>
-                                  <div className="flex gap-1">
-                                    <button onClick={() => startEdit(qso)} className="p-1.5 text-zinc-500 hover:text-amber-500 transition-colors" data-testid="qso-edit-btn"><Pencil size={16} /></button>
-                                    <button onClick={() => handleDelete(qso.id)} className="p-1.5 text-zinc-500 hover:text-red-500 transition-colors" data-testid="qso-delete-btn"><Trash size={16} /></button>
-                                  </div>
-                                </td>
-                              </>
-                            )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Mobile cards */}
-                  <div className="sm:hidden divide-y divide-zinc-800/50">
-                    {qsos.map((qso) => (
-                      <div key={qso.id} className="p-4 hover:bg-[#1a1a1a] transition-colors" data-testid="qso-mobile-card">
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="font-bold text-amber-500 font-mono text-base">{qso.callsign}</span>
-                          <div className="flex gap-2">
-                            <button onClick={() => startEdit(qso)} className="p-1 text-zinc-500 hover:text-amber-500" data-testid="qso-edit-btn-mobile"><Pencil size={16} /></button>
-                            <button onClick={() => handleDelete(qso.id)} className="p-1 text-zinc-500 hover:text-red-500" data-testid="qso-delete-btn-mobile"><Trash size={16} /></button>
-                          </div>
+                <div className="divide-y divide-zinc-800/50">
+                  {grouped.map((entry) => (
+                    <button key={entry.callsign} onClick={() => setSelectedCallsign(entry.callsign)}
+                      className="w-full text-left p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors flex items-center justify-between group" data-testid="callsign-row">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-1">
+                          <span className="font-bold text-amber-500 font-mono text-base sm:text-lg">{entry.callsign}</span>
+                          <span className="text-zinc-400 font-mono text-sm">{entry.name}</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-1 text-xs font-mono">
-                          <div className="text-zinc-500">Date</div>
-                          <div className="text-zinc-300">{formatDate(qso.date)}</div>
-                          <div className="text-zinc-500">Fréquence</div>
-                          <div className="text-zinc-200">{qso.frequency.toFixed(3)} MHz</div>
-                          <div className="text-zinc-500">Nom</div>
-                          <div className="text-zinc-300">{qso.name}</div>
+                        <div className="flex items-center gap-4 text-xs font-mono text-zinc-500">
+                          <span>Premier contact : {formatDate(entry.first_contact)}</span>
+                          <span className="hidden sm:inline">|</span>
+                          <span className="hidden sm:inline">{entry.total_contacts} contact{entry.total_contacts > 1 ? "s" : ""}</span>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="sm:hidden text-xs text-zinc-600 font-mono">{entry.total_contacts}</span>
+                        <CaretRight size={18} className="text-zinc-600 group-hover:text-amber-500 transition-colors" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
-          </main>
 
-          {/* Sidebar */}
-          <aside className="col-span-12 lg:col-span-4 flex flex-col gap-4 sm:gap-6 order-1 lg:order-2">
-            {/* Stats */}
-            <div className="bg-[#121212] border border-zinc-800/80 p-4 sm:p-6" data-testid="qso-total-stats">
-              <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-2">Total QSOs</div>
-              <div className="text-4xl sm:text-5xl font-bold tracking-tighter text-amber-500 amber-glow font-mono">{stats.total}</div>
-            </div>
+            {/* Floating add button (mobile) */}
+            <button onClick={() => { setAddCallsign(""); setShowAddModal(true); }} data-testid="fab-add-qso"
+              className="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 hover:bg-amber-600 text-black flex items-center justify-center shadow-lg shadow-amber-500/20 transition-all duration-200 z-20">
+              <Plus size={24} weight="bold" />
+            </button>
+          </>
+        )}
 
-            {/* Desktop form */}
-            <div className="hidden lg:block bg-[#121212] border border-zinc-800/80 p-6" data-testid="qso-add-form">
-              <h2 className="font-display text-xl font-semibold tracking-tight uppercase text-zinc-100 mb-6 flex items-center gap-2">
-                <Plus size={20} className="text-amber-500" />
-                Nouveau QSO
-              </h2>
-              <QSOForm formData={formData} setFormData={setFormData} handleSubmit={handleSubmit} />
-            </div>
-          </aside>
-        </div>
+        {/* Add QSO Modal */}
+        {showAddModal && (
+          <AddQSOModal callsign={addCallsign} onClose={() => setShowAddModal(false)} onAdded={handleAdded} />
+        )}
       </div>
     </div>
-  );
-}
-
-// === QSO Form Component ===
-function QSOForm({ formData, setFormData, handleSubmit }) {
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2">
-          <IdentificationCard size={14} /> Indicatif
-        </Label>
-        <Input
-          data-testid="qso-callsign-input"
-          type="text"
-          value={formData.callsign}
-          onChange={(e) => setFormData({ ...formData, callsign: e.target.value.toUpperCase() })}
-          placeholder="F4ABC"
-          className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm uppercase"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2">
-          <CalendarBlank size={14} /> Date
-        </Label>
-        <Input
-          data-testid="qso-date-input"
-          type="date"
-          value={formData.date}
-          onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-          className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2">
-          <Broadcast size={14} /> Fréquence (MHz)
-        </Label>
-        <Input
-          data-testid="qso-freq-input"
-          type="number"
-          step="0.001"
-          value={formData.frequency}
-          onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
-          placeholder="145.500"
-          className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2">
-          <User size={14} /> Nom
-        </Label>
-        <Input
-          data-testid="qso-name-input"
-          type="text"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          placeholder="Jean"
-          className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm"
-        />
-      </div>
-      <Button
-        data-testid="qso-submit-button"
-        type="submit"
-        className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none h-12 transition-all duration-200 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]"
-      >
-        Enregistrer QSO
-      </Button>
-    </form>
   );
 }
 
@@ -665,13 +529,7 @@ function QSOForm({ formData, setFormData, handleSubmit }) {
 function App() {
   return (
     <AuthProvider>
-      <Toaster
-        position="top-right"
-        theme="dark"
-        toastOptions={{
-          style: { background: "#121212", border: "1px solid #27272a", color: "#FAFAFA" },
-        }}
-      />
+      <Toaster position="top-right" theme="dark" toastOptions={{ style: { background: "#121212", border: "1px solid #27272a", color: "#FAFAFA" } }} />
       <AppContent />
     </AuthProvider>
   );

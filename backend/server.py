@@ -204,14 +204,11 @@ async def refresh_token(request: Request, response: Response):
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
 # === QSO Models ===
-class QSOBase(BaseModel):
+class QSOCreate(BaseModel):
     callsign: str = Field(..., min_length=1, max_length=20)
     date: str
     frequency: float = Field(..., gt=0)
     name: str = Field(..., min_length=1, max_length=100)
-
-class QSOCreate(QSOBase):
-    pass
 
 class QSOUpdate(BaseModel):
     callsign: Optional[str] = None
@@ -219,25 +216,10 @@ class QSOUpdate(BaseModel):
     frequency: Optional[float] = None
     name: Optional[str] = None
 
-class QSO(QSOBase):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    owner_id: str = ""
-    owner_callsign: str = ""
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
 # === QSO Endpoints (Protected) ===
 @api_router.post("/qso")
 async def create_qso(qso_data: QSOCreate, request: Request):
     user = await get_current_user(request)
-    
-    # Anti-doublon: même indicatif déjà dans le carnet
-    existing = await db.qsos.find_one({
-        "callsign": qso_data.callsign.upper(),
-        "owner_id": user["id"]
-    }, {"_id": 0})
-    if existing:
-        raise HTTPException(status_code=409, detail="Cet indicatif est déjà dans la liste")
     
     qso_id = str(uuid.uuid4())
     doc = {
@@ -254,26 +236,75 @@ async def create_qso(qso_data: QSOCreate, request: Request):
     doc.pop("_id", None)
     return doc
 
-@api_router.get("/qso")
-async def get_qsos(request: Request, search: Optional[str] = None):
+# Grouped list: one entry per callsign
+@api_router.get("/qso/grouped")
+async def get_qsos_grouped(request: Request, search: Optional[str] = None):
     user = await get_current_user(request)
-    query = {"owner_id": user["id"]}
-    
+    match_stage = {"owner_id": user["id"]}
     if search:
-        query["$or"] = [
+        match_stage["$or"] = [
             {"callsign": {"$regex": search, "$options": "i"}},
             {"name": {"$regex": search, "$options": "i"}}
         ]
-        query = {"$and": [{"owner_id": user["id"]}, {"$or": query["$or"]}]}
     
-    qsos = await db.qsos.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    return qsos
+    pipeline = [
+        {"$match": match_stage},
+        {"$sort": {"date": 1}},
+        {"$group": {
+            "_id": "$callsign",
+            "callsign": {"$first": "$callsign"},
+            "name": {"$first": "$name"},
+            "first_contact": {"$first": "$date"},
+            "last_contact": {"$last": "$date"},
+            "total_contacts": {"$sum": 1},
+            "last_created_at": {"$last": "$created_at"}
+        }},
+        {"$sort": {"last_created_at": -1}},
+        {"$project": {"_id": 0, "callsign": 1, "name": 1, "first_contact": 1, "last_contact": 1, "total_contacts": 1}}
+    ]
+    
+    results = await db.qsos.aggregate(pipeline).to_list(1000)
+    return results
+
+# History for a specific callsign
+@api_router.get("/qso/history/{callsign}")
+async def get_qso_history(callsign: str, request: Request):
+    user = await get_current_user(request)
+    qsos = await db.qsos.find(
+        {"callsign": callsign.upper(), "owner_id": user["id"]},
+        {"_id": 0}
+    ).sort("date", -1).to_list(1000)
+    
+    if not qsos:
+        raise HTTPException(status_code=404, detail="Aucun QSO trouvé pour cet indicatif")
+    
+    return {
+        "callsign": callsign.upper(),
+        "name": qsos[0].get("name", ""),
+        "first_contact": qsos[-1]["date"],
+        "last_contact": qsos[0]["date"],
+        "total_contacts": len(qsos),
+        "history": qsos
+    }
 
 @api_router.get("/qso/stats/total")
 async def get_qso_stats(request: Request):
     user = await get_current_user(request)
-    total = await db.qsos.count_documents({"owner_id": user["id"]})
-    return {"total": total}
+    total_qsos = await db.qsos.count_documents({"owner_id": user["id"]})
+    unique_callsigns = await db.qsos.distinct("callsign", {"owner_id": user["id"]})
+    return {"total_qsos": total_qsos, "total_callsigns": len(unique_callsigns)}
+
+@api_router.get("/qso")
+async def get_qsos(request: Request, search: Optional[str] = None):
+    user = await get_current_user(request)
+    query = {"owner_id": user["id"]}
+    if search:
+        query = {"$and": [{"owner_id": user["id"]}, {"$or": [
+            {"callsign": {"$regex": search, "$options": "i"}},
+            {"name": {"$regex": search, "$options": "i"}}
+        ]}]}
+    qsos = await db.qsos.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return qsos
 
 @api_router.put("/qso/{qso_id}")
 async def update_qso(qso_id: str, qso_data: QSOUpdate, request: Request):

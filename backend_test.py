@@ -158,6 +158,18 @@ class QSOAPITester:
     def test_get_stats(self):
         """Test getting QSO statistics"""
         return self.run_test("Get QSO Stats", "GET", "qso/stats/total", 200)
+    
+    def test_get_grouped_qsos(self):
+        """Test getting grouped QSOs (one entry per callsign)"""
+        return self.run_test("Get Grouped QSOs", "GET", "qso/grouped", 200)
+    
+    def test_search_grouped_qsos(self, search_term):
+        """Test searching grouped QSOs"""
+        return self.run_test(f"Search Grouped QSOs '{search_term}'", "GET", "qso/grouped", 200, params={"search": search_term})
+    
+    def test_get_qso_history(self, callsign):
+        """Test getting QSO history for a specific callsign"""
+        return self.run_test(f"Get QSO History for {callsign}", "GET", f"qso/history/{callsign}", 200)
 
     def test_invalid_qso_creation(self):
         """Test creating QSO with invalid data"""
@@ -186,18 +198,29 @@ def main():
     # Test 2: Test unauthorized access
     tester.test_unauthorized_access()
     
-    # Test 3: Register test user
-    test_email = "test@qso.com"
-    test_password = "testpwd123"
-    test_callsign = "F4TEST"
+    # Test 3: Try to login with admin first, if that fails, register test user
+    admin_success, admin_data = tester.test_login("admin@example.com", "admin123")
+    if admin_success:
+        print("✅ Using admin account for testing")
+        test_email = "admin@example.com"
+        test_password = "admin123"
+        test_callsign = "F0ADMIN"
+    else:
+        # Test 3: Register test user with unique timestamp
+        import time
+        timestamp = str(int(time.time()))
+        test_email = f"test{timestamp}@qso.com"
+        test_password = "testpwd123"
+        test_callsign = f"F4T{timestamp[-4:]}"
+        
+        success, user_data = tester.test_register(test_email, test_password, test_callsign)
+        if not success:
+            print("❌ Registration failed, stopping tests")
+            return 1
     
-    success, user_data = tester.test_register(test_email, test_password, test_callsign)
-    if not success:
-        print("❌ Registration failed, stopping tests")
-        return 1
-    
-    # Test 4: Test duplicate registration
-    tester.test_duplicate_registration(test_email, test_password, test_callsign)
+    # Test 4: Test duplicate registration (only if we registered a new user)
+    if not admin_success:
+        tester.test_duplicate_registration(test_email, test_password, test_callsign)
     
     # Test 5: Test logout
     tester.test_logout()
@@ -220,50 +243,71 @@ def main():
     # Test 10: Get all QSOs (should be empty initially)
     tester.test_get_all_qsos()
     
-    # Test 11: Create test QSOs
+    # Test 11: Create test QSOs for grouping test
     today = date.today().isoformat()
     qso1_id = tester.test_create_qso("F4ABC", today, 145.500, "Jean")
     qso2_id = tester.test_create_qso("ON4XYZ", today, 14.205, "Pierre")
     qso3_id = tester.test_create_qso("DL1TEST", today, 28.400, "Hans")
+    # Add second QSO for F4ABC to test grouping
+    qso4_id = tester.test_create_qso("F4ABC", "2024-01-15", 28.200, "Jean")
     
-    # Test 12: Test duplicate QSO (same callsign + date)
+    # Test 12: Test grouped QSOs functionality
+    success, grouped_data = tester.test_get_grouped_qsos()
+    if success:
+        print(f"📊 Grouped QSOs: {len(grouped_data)} unique callsigns")
+        for entry in grouped_data:
+            print(f"   - {entry.get('callsign')}: {entry.get('total_contacts')} contacts, first: {entry.get('first_contact')}")
+    
+    # Test 13: Test QSO history for specific callsign
+    if qso1_id:
+        success, history_data = tester.test_get_qso_history("F4ABC")
+        if success:
+            print(f"📊 F4ABC History: {history_data.get('total_contacts')} contacts")
+            print(f"   First: {history_data.get('first_contact')}, Last: {history_data.get('last_contact')}")
+    
+    # Test 14: Test search in grouped QSOs
+    tester.test_search_grouped_qsos("F4ABC")  # Search by callsign
+    tester.test_search_grouped_qsos("Jean")   # Search by name
+    tester.test_search_grouped_qsos("DL1")    # Partial callsign search
+    
+    # Test 15: Test duplicate QSO (same callsign + date)
     if qso1_id:
         tester.test_duplicate_qso("F4ABC", today, 145.500, "Jean")
     
-    # Test 13: Get QSOs after creation
+    # Test 16: Get QSOs after creation
     tester.test_get_all_qsos()
     
-    # Test 14: Get specific QSO by ID
+    # Test 17: Get specific QSO by ID
     if qso1_id:
         tester.test_get_qso_by_id(qso1_id)
     
-    # Test 15: Search functionality
+    # Test 18: Search functionality
     tester.test_search_qsos("F4ABC")  # Search by callsign
     tester.test_search_qsos("Jean")   # Search by name
     tester.test_search_qsos("DL1")    # Partial callsign search
     
-    # Test 16: Update QSO
+    # Test 19: Update QSO
     if qso1_id:
         update_data = {"name": "Jean-Claude", "frequency": 145.525}
         tester.test_update_qso(qso1_id, update_data)
         tester.test_get_qso_by_id(qso1_id)  # Verify update
     
-    # Test 17: Get updated stats
+    # Test 20: Get updated stats
     tester.test_get_stats()
     
-    # Test 18: Error handling tests
+    # Test 21: Error handling tests
     tester.test_invalid_qso_creation()
     tester.test_nonexistent_qso()
     
-    # Test 19: Delete QSO
+    # Test 22: Delete QSO
     if qso2_id:
         tester.test_delete_qso(qso2_id)
         tester.test_get_qso_by_id(qso2_id)  # Should return 404
     
-    # Test 20: Final stats check
+    # Test 23: Final stats check
     tester.test_get_stats()
     
-    # Test 21: Test user isolation - login as admin
+    # Test 24: Test user isolation - login as admin
     print(f"\n🔄 Testing user isolation - switching to admin user...")
     tester.test_logout()  # Logout test user
     
@@ -274,8 +318,13 @@ def main():
         success, admin_qsos = tester.test_get_all_qsos()
         if success:
             print(f"📊 Admin sees {len(admin_qsos)} QSOs (should be 0 if isolation works)")
+        
+        # Test admin's grouped QSOs
+        success, admin_grouped = tester.test_get_grouped_qsos()
+        if success:
+            print(f"📊 Admin grouped QSOs: {len(admin_grouped)} unique callsigns")
     
-    # Test 22: Test refresh token
+    # Test 25: Test refresh token
     tester.test_refresh_token()
     
     # Cleanup: Login back as test user and clean up QSOs
