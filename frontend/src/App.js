@@ -20,7 +20,8 @@ import {
   CaretRight,
   ArrowLeft,
   Clock,
-  Hash
+  Hash,
+  Check
 } from "@phosphor-icons/react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -341,6 +342,7 @@ function ContactDetail({ callsign, onBack }) {
 
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
+  const [editingModeId, setEditingModeId] = useState(null);
 
   const startEditName = () => { setNameValue(data?.name || ""); setEditingName(true); };
   const saveContactName = async () => {
@@ -350,6 +352,15 @@ function ContactDetail({ callsign, onBack }) {
       setEditingName(false);
       fetchHistory();
     } catch { toast.error("Erreur mise à jour du nom"); }
+  };
+
+  const updateQsoMode = async (qsoId, newMode) => {
+    try {
+      await axios.put(`${API}/qso/${qsoId}`, { mode: newMode });
+      toast.success("Mode mis à jour");
+      setEditingModeId(null);
+      fetchHistory();
+    } catch { toast.error("Erreur mise à jour du mode"); }
   };
 
   const formatDate = (d) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -442,7 +453,21 @@ function ContactDetail({ callsign, onBack }) {
                       </div>
                       <div>
                         <span className="text-zinc-500 text-xs">Mode</span>
-                        <div className="text-zinc-200">{qso.mode || "—"}</div>
+                        {editingModeId === qso.id ? (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {MODES.map((m) => (
+                              <button key={m} type="button" onClick={() => updateQsoMode(qso.id, m)}
+                                className={`px-2 py-0.5 text-[10px] font-mono uppercase border transition-all ${qso.mode === m ? "bg-amber-500 text-black border-amber-500" : "bg-[#09090b] text-zinc-400 border-zinc-700 hover:border-zinc-500"}`}>
+                                {m}
+                              </button>
+                            ))}
+                            <button onClick={() => setEditingModeId(null)} className="px-2 py-0.5 text-[10px] text-zinc-500 hover:text-zinc-300"><X size={12} /></button>
+                          </div>
+                        ) : (
+                          <div className="text-zinc-200 cursor-pointer hover:text-amber-500 transition-colors" onClick={() => setEditingModeId(qso.id)} data-testid="edit-mode-btn">
+                            {qso.mode || "—"} <Pencil size={10} className="inline ml-1 opacity-50" />
+                          </div>
+                        )}
                       </div>
                       <div>
                         <span className="text-zinc-500 text-xs">Nom</span>
