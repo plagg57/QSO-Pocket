@@ -1,33 +1,212 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from pathlib import Path
 from dotenv import load_dotenv
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env')
+
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
-from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import uuid
-from datetime import datetime, timezone
-
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+from datetime import datetime, timezone, timedelta
+import bcrypt
+import jwt
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Create the main app without a prefix
-app = FastAPI()
+JWT_ALGORITHM = "HS256"
 
-# Create a router with the /api prefix
+def get_jwt_secret() -> str:
+    return os.environ["JWT_SECRET"]
+
+# Password hashing
+def hash_password(password: str) -> str:
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
+    return hashed.decode("utf-8")
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+
+# JWT tokens
+def create_access_token(user_id: str, email: str) -> str:
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "exp": datetime.now(timezone.utc) + timedelta(hours=24),
+        "type": "access"
+    }
+    return jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALGORITHM)
+
+def create_refresh_token(user_id: str) -> str:
+    payload = {
+        "sub": user_id,
+        "exp": datetime.now(timezone.utc) + timedelta(days=7),
+        "type": "refresh"
+    }
+    return jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALGORITHM)
+
+# Auth helper
+async def get_current_user(request: Request) -> dict:
+    token = request.cookies.get("access_token")
+    if not token:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
+        if payload.get("type") != "access":
+            raise HTTPException(status_code=401, detail="Invalid token type")
+        user = await db.users.find_one({"id": payload["sub"]})
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        return {
+            "id": user["id"],
+            "email": user["email"],
+            "callsign": user["callsign"],
+            "name": user.get("name", ""),
+            "role": user.get("role", "user")
+        }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=86400, path="/")
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+
+# Create the main app
+app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
-# QSO Models
+# === Auth Models ===
+class RegisterRequest(BaseModel):
+    email: str
+    password: str = Field(..., min_length=6)
+    callsign: str = Field(..., min_length=2, max_length=20)
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    callsign: str
+    role: str
+
+# === Auth Endpoints ===
+@api_router.post("/auth/register")
+async def register(data: RegisterRequest, response: Response):
+    email = data.email.lower().strip()
+    callsign = data.callsign.upper().strip()
+    
+    existing_email = await db.users.find_one({"email": email})
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Cet email est déjà utilisé")
+    
+    existing_callsign = await db.users.find_one({"callsign": callsign})
+    if existing_callsign:
+        raise HTTPException(status_code=400, detail="Cet indicatif est déjà utilisé")
+    
+    user_id = str(uuid.uuid4())
+    user_doc = {
+        "id": user_id,
+        "email": email,
+        "password_hash": hash_password(data.password),
+        "callsign": callsign,
+        "role": "user",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.users.insert_one(user_doc)
+    
+    access_token = create_access_token(user_id, email)
+    refresh_token = create_refresh_token(user_id)
+    set_auth_cookies(response, access_token, refresh_token)
+    
+    return {"id": user_id, "email": email, "callsign": callsign, "role": "user"}
+
+@api_router.post("/auth/login")
+async def login(data: LoginRequest, request: Request, response: Response):
+    email = data.email.lower().strip()
+    
+    # Brute force check
+    ip = request.client.host if request.client else "unknown"
+    identifier = f"{ip}:{email}"
+    attempt = await db.login_attempts.find_one({"identifier": identifier}, {"_id": 0})
+    if attempt and attempt.get("count", 0) >= 5:
+        lockout_until = attempt.get("lockout_until", "")
+        if lockout_until and datetime.fromisoformat(lockout_until) > datetime.now(timezone.utc):
+            raise HTTPException(status_code=429, detail="Trop de tentatives. Réessayez dans 15 minutes.")
+        else:
+            await db.login_attempts.delete_one({"identifier": identifier})
+    
+    user = await db.users.find_one({"email": email})
+    if not user or not verify_password(data.password, user["password_hash"]):
+        # Increment failed attempts
+        if attempt:
+            new_count = attempt.get("count", 0) + 1
+            update = {"$set": {"count": new_count}}
+            if new_count >= 5:
+                update["$set"]["lockout_until"] = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+            await db.login_attempts.update_one({"identifier": identifier}, update)
+        else:
+            await db.login_attempts.insert_one({"identifier": identifier, "count": 1})
+        raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
+    
+    # Clear failed attempts on success
+    await db.login_attempts.delete_one({"identifier": identifier})
+    
+    access_token = create_access_token(user["id"], email)
+    refresh_token = create_refresh_token(user["id"])
+    set_auth_cookies(response, access_token, refresh_token)
+    
+    return {"id": user["id"], "email": user["email"], "callsign": user["callsign"], "role": user.get("role", "user")}
+
+@api_router.post("/auth/logout")
+async def logout(response: Response):
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("refresh_token", path="/")
+    return {"message": "Déconnexion réussie"}
+
+@api_router.get("/auth/me")
+async def get_me(request: Request):
+    user = await get_current_user(request)
+    return user
+
+@api_router.post("/auth/refresh")
+async def refresh_token(request: Request, response: Response):
+    token = request.cookies.get("refresh_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="No refresh token")
+    try:
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
+        if payload.get("type") != "refresh":
+            raise HTTPException(status_code=401, detail="Invalid token type")
+        user = await db.users.find_one({"id": payload["sub"]})
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        access_token = create_access_token(user["id"], user["email"])
+        response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=86400, path="/")
+        return {"message": "Token refreshed"}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Refresh token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+# === QSO Models ===
 class QSOBase(BaseModel):
     callsign: str = Field(..., min_length=1, max_length=20)
-    date: str  # ISO date string
+    date: str
     frequency: float = Field(..., gt=0)
     name: str = Field(..., min_length=1, max_length=100)
 
@@ -43,56 +222,70 @@ class QSOUpdate(BaseModel):
 class QSO(QSOBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    owner_id: str = ""
+    owner_callsign: str = ""
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
-# QSO Routes
-@api_router.post("/qso", response_model=QSO)
-async def create_qso(qso_data: QSOCreate):
-    qso = QSO(**qso_data.model_dump())
-    doc = qso.model_dump()
+# === QSO Endpoints (Protected) ===
+@api_router.post("/qso")
+async def create_qso(qso_data: QSOCreate, request: Request):
+    user = await get_current_user(request)
+    
+    # Anti-doublon: same callsign + date + owner
+    existing = await db.qsos.find_one({
+        "callsign": qso_data.callsign.upper(),
+        "date": qso_data.date,
+        "owner_id": user["id"]
+    }, {"_id": 0})
+    if existing:
+        raise HTTPException(status_code=409, detail="Ce QSO existe déjà (même indicatif et date)")
+    
+    qso_id = str(uuid.uuid4())
+    doc = {
+        "id": qso_id,
+        "callsign": qso_data.callsign.upper(),
+        "date": qso_data.date,
+        "frequency": qso_data.frequency,
+        "name": qso_data.name,
+        "owner_id": user["id"],
+        "owner_callsign": user["callsign"],
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
     await db.qsos.insert_one(doc)
-    return qso
+    doc.pop("_id", None)
+    return doc
 
-@api_router.get("/qso", response_model=List[QSO])
-async def get_qsos(
-    search: Optional[str] = None,
-    frequency_min: Optional[float] = None,
-    frequency_max: Optional[float] = None
-):
-    query = {}
+@api_router.get("/qso")
+async def get_qsos(request: Request, search: Optional[str] = None):
+    user = await get_current_user(request)
+    query = {"owner_id": user["id"]}
     
     if search:
         query["$or"] = [
             {"callsign": {"$regex": search, "$options": "i"}},
             {"name": {"$regex": search, "$options": "i"}}
         ]
-    
-    if frequency_min is not None or frequency_max is not None:
-        query["frequency"] = {}
-        if frequency_min is not None:
-            query["frequency"]["$gte"] = frequency_min
-        if frequency_max is not None:
-            query["frequency"]["$lte"] = frequency_max
-        if not query["frequency"]:
-            del query["frequency"]
+        query = {"$and": [{"owner_id": user["id"]}, {"$or": query["$or"]}]}
     
     qsos = await db.qsos.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return qsos
 
-@api_router.get("/qso/{qso_id}", response_model=QSO)
-async def get_qso(qso_id: str):
-    qso = await db.qsos.find_one({"id": qso_id}, {"_id": 0})
-    if not qso:
-        raise HTTPException(status_code=404, detail="QSO not found")
-    return qso
+@api_router.get("/qso/stats/total")
+async def get_qso_stats(request: Request):
+    user = await get_current_user(request)
+    total = await db.qsos.count_documents({"owner_id": user["id"]})
+    return {"total": total}
 
-@api_router.put("/qso/{qso_id}", response_model=QSO)
-async def update_qso(qso_id: str, qso_data: QSOUpdate):
-    existing = await db.qsos.find_one({"id": qso_id}, {"_id": 0})
+@api_router.put("/qso/{qso_id}")
+async def update_qso(qso_id: str, qso_data: QSOUpdate, request: Request):
+    user = await get_current_user(request)
+    existing = await db.qsos.find_one({"id": qso_id, "owner_id": user["id"]}, {"_id": 0})
     if not existing:
-        raise HTTPException(status_code=404, detail="QSO not found")
+        raise HTTPException(status_code=404, detail="QSO non trouvé")
     
     update_data = {k: v for k, v in qso_data.model_dump().items() if v is not None}
+    if "callsign" in update_data:
+        update_data["callsign"] = update_data["callsign"].upper()
     if update_data:
         await db.qsos.update_one({"id": qso_id}, {"$set": update_data})
     
@@ -100,39 +293,66 @@ async def update_qso(qso_id: str, qso_data: QSOUpdate):
     return updated
 
 @api_router.delete("/qso/{qso_id}")
-async def delete_qso(qso_id: str):
-    result = await db.qsos.delete_one({"id": qso_id})
+async def delete_qso(qso_id: str, request: Request):
+    user = await get_current_user(request)
+    result = await db.qsos.delete_one({"id": qso_id, "owner_id": user["id"]})
     if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="QSO not found")
-    return {"message": "QSO deleted successfully"}
+        raise HTTPException(status_code=404, detail="QSO non trouvé")
+    return {"message": "QSO supprimé"}
 
-@api_router.get("/qso/stats/total")
-async def get_qso_stats():
-    total = await db.qsos.count_documents({})
-    return {"total": total}
-
-# Root route
+# Root
 @api_router.get("/")
 async def root():
     return {"message": "QSO Logbook API"}
 
-# Include the router in the main app
+# Include router
 app.include_router(api_router)
+
+# CORS - must support credentials
+frontend_url = os.environ.get('REACT_APP_FRONTEND_URL', '')
+cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
+all_origins = [o.strip() for o in cors_origins if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=all_origins if "*" not in all_origins else ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Startup - seed admin + indexes
+@app.on_event("startup")
+async def startup():
+    # Create indexes
+    await db.users.create_index("email", unique=True)
+    await db.users.create_index("callsign", unique=True)
+    await db.login_attempts.create_index("identifier")
+    await db.qsos.create_index("owner_id")
+    
+    # Seed admin
+    admin_email = os.environ.get("ADMIN_EMAIL", "admin@example.com")
+    admin_password = os.environ.get("ADMIN_PASSWORD", "admin123")
+    admin_callsign = os.environ.get("ADMIN_CALLSIGN", "F0ADMIN")
+    
+    existing = await db.users.find_one({"email": admin_email})
+    if existing is None:
+        await db.users.insert_one({
+            "id": str(uuid.uuid4()),
+            "email": admin_email,
+            "password_hash": hash_password(admin_password),
+            "callsign": admin_callsign,
+            "role": "admin",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+        logger.info(f"Admin user seeded: {admin_email} / {admin_callsign}")
+    elif not verify_password(admin_password, existing["password_hash"]):
+        await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
+        logger.info("Admin password updated")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

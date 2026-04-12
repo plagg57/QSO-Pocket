@@ -10,6 +10,7 @@ class QSOAPITester:
         self.tests_run = 0
         self.tests_passed = 0
         self.created_qso_ids = []
+        self.session = requests.Session()  # Use session to maintain cookies
 
     def run_test(self, name, method, endpoint, expected_status, data=None, params=None):
         """Run a single API test"""
@@ -22,13 +23,13 @@ class QSOAPITester:
         
         try:
             if method == 'GET':
-                response = requests.get(url, headers=headers, params=params)
+                response = self.session.get(url, headers=headers, params=params)
             elif method == 'POST':
-                response = requests.post(url, json=data, headers=headers)
+                response = self.session.post(url, json=data, headers=headers)
             elif method == 'PUT':
-                response = requests.put(url, json=data, headers=headers)
+                response = self.session.put(url, json=data, headers=headers)
             elif method == 'DELETE':
-                response = requests.delete(url, headers=headers)
+                response = self.session.delete(url, headers=headers)
 
             success = response.status_code == expected_status
             if success:
@@ -54,6 +55,69 @@ class QSOAPITester:
             return False, {}
 
     def test_root_endpoint(self):
+        """Test root API endpoint"""
+        return self.run_test("Root API", "GET", "", 200)
+
+    def test_register(self, email, password, callsign):
+        """Test user registration"""
+        data = {"email": email, "password": password, "callsign": callsign}
+        return self.run_test("Register User", "POST", "auth/register", 200, data=data)
+
+    def test_login(self, email, password):
+        """Test user login"""
+        data = {"email": email, "password": password}
+        return self.run_test("Login User", "POST", "auth/login", 200, data=data)
+
+    def test_logout(self):
+        """Test user logout"""
+        return self.run_test("Logout User", "POST", "auth/logout", 200)
+
+    def test_get_me(self):
+        """Test getting current user info"""
+        return self.run_test("Get Current User", "GET", "auth/me", 200)
+
+    def test_refresh_token(self):
+        """Test token refresh"""
+        return self.run_test("Refresh Token", "POST", "auth/refresh", 200)
+
+    def test_duplicate_registration(self, email, password, callsign):
+        """Test duplicate registration should fail"""
+        data = {"email": email, "password": password, "callsign": callsign}
+        return self.run_test("Duplicate Registration", "POST", "auth/register", 400, data=data)
+
+    def test_invalid_login(self, email, password):
+        """Test login with invalid credentials"""
+        data = {"email": email, "password": password}
+        return self.run_test("Invalid Login", "POST", "auth/login", 401, data=data)
+
+    def test_unauthorized_access(self):
+        """Test accessing protected endpoint without auth"""
+        # Create new session without cookies
+        temp_session = requests.Session()
+        url = f"{self.api_url}/qso"
+        response = temp_session.get(url)
+        
+        self.tests_run += 1
+        print(f"\n🔍 Testing Unauthorized Access...")
+        print(f"   URL: {url}")
+        
+        if response.status_code == 401:
+            self.tests_passed += 1
+            print(f"✅ Passed - Status: {response.status_code}")
+            return True, {}
+        else:
+            print(f"❌ Failed - Expected 401, got {response.status_code}")
+            return False, {}
+
+    def test_duplicate_qso(self, callsign, date_str, frequency, name):
+        """Test creating duplicate QSO should fail with 409"""
+        qso_data = {
+            "callsign": callsign,
+            "date": date_str,
+            "frequency": frequency,
+            "name": name
+        }
+        return self.run_test("Create Duplicate QSO", "POST", "qso", 409, data=qso_data)
         """Test root API endpoint"""
         return self.run_test("Root API", "GET", "", 200)
 
@@ -111,67 +175,121 @@ class QSOAPITester:
         return self.run_test("Get Non-existent QSO", "GET", f"qso/{fake_id}", 404)
 
 def main():
-    print("🚀 Starting QSO API Tests...")
-    print("=" * 50)
+    print("🚀 Starting QSO API Tests with Authentication...")
+    print("=" * 60)
     
     tester = QSOAPITester()
     
-    # Test 1: Root endpoint
+    # Test 1: Root endpoint (no auth required)
     tester.test_root_endpoint()
     
-    # Test 2: Get initial stats
+    # Test 2: Test unauthorized access
+    tester.test_unauthorized_access()
+    
+    # Test 3: Register test user
+    test_email = "test@qso.com"
+    test_password = "testpwd123"
+    test_callsign = "F4TEST"
+    
+    success, user_data = tester.test_register(test_email, test_password, test_callsign)
+    if not success:
+        print("❌ Registration failed, stopping tests")
+        return 1
+    
+    # Test 4: Test duplicate registration
+    tester.test_duplicate_registration(test_email, test_password, test_callsign)
+    
+    # Test 5: Test logout
+    tester.test_logout()
+    
+    # Test 6: Test login
+    success, login_data = tester.test_login(test_email, test_password)
+    if not success:
+        print("❌ Login failed, stopping tests")
+        return 1
+    
+    # Test 7: Test invalid login
+    tester.test_invalid_login("wrong@email.com", "wrongpass")
+    
+    # Test 8: Test get current user
+    tester.test_get_me()
+    
+    # Test 9: Get initial stats
     tester.test_get_stats()
     
-    # Test 3: Get all QSOs (should be empty initially)
+    # Test 10: Get all QSOs (should be empty initially)
     tester.test_get_all_qsos()
     
-    # Test 4: Create test QSOs
+    # Test 11: Create test QSOs
     today = date.today().isoformat()
     qso1_id = tester.test_create_qso("F4ABC", today, 145.500, "Jean")
     qso2_id = tester.test_create_qso("ON4XYZ", today, 14.205, "Pierre")
     qso3_id = tester.test_create_qso("DL1TEST", today, 28.400, "Hans")
     
-    # Test 5: Get QSOs after creation
+    # Test 12: Test duplicate QSO (same callsign + date)
+    if qso1_id:
+        tester.test_duplicate_qso("F4ABC", today, 145.500, "Jean")
+    
+    # Test 13: Get QSOs after creation
     tester.test_get_all_qsos()
     
-    # Test 6: Get specific QSO by ID
+    # Test 14: Get specific QSO by ID
     if qso1_id:
         tester.test_get_qso_by_id(qso1_id)
     
-    # Test 7: Search functionality
+    # Test 15: Search functionality
     tester.test_search_qsos("F4ABC")  # Search by callsign
     tester.test_search_qsos("Jean")   # Search by name
     tester.test_search_qsos("DL1")    # Partial callsign search
     
-    # Test 8: Update QSO
+    # Test 16: Update QSO
     if qso1_id:
         update_data = {"name": "Jean-Claude", "frequency": 145.525}
         tester.test_update_qso(qso1_id, update_data)
         tester.test_get_qso_by_id(qso1_id)  # Verify update
     
-    # Test 9: Get updated stats
+    # Test 17: Get updated stats
     tester.test_get_stats()
     
-    # Test 10: Error handling tests
+    # Test 18: Error handling tests
     tester.test_invalid_qso_creation()
     tester.test_nonexistent_qso()
     
-    # Test 11: Delete QSO
+    # Test 19: Delete QSO
     if qso2_id:
         tester.test_delete_qso(qso2_id)
         tester.test_get_qso_by_id(qso2_id)  # Should return 404
     
-    # Test 12: Final stats check
+    # Test 20: Final stats check
     tester.test_get_stats()
     
-    # Cleanup remaining QSOs
-    print(f"\n🧹 Cleaning up {len(tester.created_qso_ids)} created QSOs...")
+    # Test 21: Test user isolation - login as admin
+    print(f"\n🔄 Testing user isolation - switching to admin user...")
+    tester.test_logout()  # Logout test user
+    
+    admin_success, admin_data = tester.test_login("admin@example.com", "admin123")
+    if admin_success:
+        print("✅ Admin login successful")
+        # Admin should not see test user's QSOs
+        success, admin_qsos = tester.test_get_all_qsos()
+        if success:
+            print(f"📊 Admin sees {len(admin_qsos)} QSOs (should be 0 if isolation works)")
+    
+    # Test 22: Test refresh token
+    tester.test_refresh_token()
+    
+    # Cleanup: Login back as test user and clean up QSOs
+    print(f"\n🧹 Cleaning up - logging back as test user...")
+    tester.test_logout()
+    tester.test_login(test_email, test_password)
+    
+    print(f"🧹 Cleaning up {len(tester.created_qso_ids)} created QSOs...")
     for qso_id in tester.created_qso_ids:
         if qso_id != qso2_id:  # Skip already deleted
             tester.test_delete_qso(qso_id)
     
     # Print final results
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 60)
     print(f"📊 Final Results: {tester.tests_passed}/{tester.tests_run} tests passed")
     
     if tester.tests_passed == tester.tests_run:
