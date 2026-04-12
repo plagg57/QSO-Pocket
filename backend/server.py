@@ -209,6 +209,7 @@ class QSOCreate(BaseModel):
     date: str
     frequency: float = Field(..., gt=0)
     name: str = Field("", max_length=100)
+    mode: str = Field("", max_length=20)
     comment: Optional[str] = ""
 
 class QSOUpdate(BaseModel):
@@ -216,6 +217,7 @@ class QSOUpdate(BaseModel):
     date: Optional[str] = None
     frequency: Optional[float] = None
     name: Optional[str] = None
+    mode: Optional[str] = None
     comment: Optional[str] = None
 
 # === QSO Endpoints (Protected) ===
@@ -230,6 +232,7 @@ async def create_qso(qso_data: QSOCreate, request: Request):
         "date": qso_data.date,
         "frequency": qso_data.frequency,
         "name": qso_data.name,
+        "mode": qso_data.mode.upper() if qso_data.mode else "",
         "comment": qso_data.comment or "",
         "owner_id": user["id"],
         "owner_callsign": user["callsign"],
@@ -283,12 +286,27 @@ async def get_qso_history(callsign: str, request: Request):
     
     return {
         "callsign": callsign.upper(),
-        "name": qsos[0].get("name", ""),
+        "name": next((q.get("name", "") for q in qsos if q.get("name")), ""),
         "first_contact": qsos[-1]["date"],
         "last_contact": qsos[0]["date"],
         "total_contacts": len(qsos),
         "history": qsos
     }
+
+# Update name for all QSOs of a callsign
+class UpdateNameRequest(BaseModel):
+    name: str = Field("", max_length=100)
+
+@api_router.put("/qso/contact/{callsign}/name")
+async def update_contact_name(callsign: str, data: UpdateNameRequest, request: Request):
+    user = await get_current_user(request)
+    result = await db.qsos.update_many(
+        {"callsign": callsign.upper(), "owner_id": user["id"]},
+        {"$set": {"name": data.name}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Aucun QSO trouvé pour cet indicatif")
+    return {"message": "Nom mis à jour", "updated": result.modified_count}
 
 @api_router.get("/qso/stats/total")
 async def get_qso_stats(request: Request):

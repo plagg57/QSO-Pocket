@@ -26,6 +26,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { getFlagUrl, getCountryName } from "@/utils/callsignFlags";
+import { getBand } from "@/utils/bands";
+
+const MODES = ["FM", "SSB", "CW", "FT8", "FT4", "DMR", "C4FM", "D-STAR", "AM", "RTTY", "PSK31", "SSTV"];
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -203,6 +206,7 @@ function AddQSOModal({ callsign, prefillName, onClose, onAdded }) {
     callsign: callsign || "",
     date: new Date().toISOString().split("T")[0],
     frequency: "",
+    mode: "",
     name: prefillName || "",
     comment: "",
   });
@@ -267,6 +271,20 @@ function AddQSOModal({ callsign, prefillName, onClose, onAdded }) {
             <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Broadcast size={14} /> Fréquence (MHz)</Label>
             <Input data-testid="qso-freq-input" type="number" step="0.001" value={formData.frequency} onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
               placeholder="145.500" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+            {formData.frequency && getBand(formData.frequency) && (
+              <span className="text-xs text-amber-500 font-mono">Bande : {getBand(formData.frequency)}</span>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Broadcast size={14} weight="bold" /> Mode</Label>
+            <div className="flex flex-wrap gap-2" data-testid="qso-mode-select">
+              {MODES.map((m) => (
+                <button key={m} type="button" onClick={() => setFormData({ ...formData, mode: formData.mode === m ? "" : m })}
+                  className={`px-3 py-1.5 text-xs font-mono uppercase tracking-wider border transition-all duration-150 ${formData.mode === m ? "bg-amber-500 text-black border-amber-500 font-bold" : "bg-[#09090b] text-zinc-400 border-zinc-700 hover:border-zinc-500"}`}>
+                  {m}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><User size={14} /> Nom</Label>
@@ -321,6 +339,19 @@ function ContactDetail({ callsign, onBack }) {
     } catch { toast.error("Erreur suppression"); }
   };
 
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState("");
+
+  const startEditName = () => { setNameValue(data?.name || ""); setEditingName(true); };
+  const saveContactName = async () => {
+    try {
+      await axios.put(`${API}/qso/contact/${encodeURIComponent(callsign)}/name`, { name: nameValue });
+      toast.success("Nom mis à jour");
+      setEditingName(false);
+      fetchHistory();
+    } catch { toast.error("Erreur mise à jour du nom"); }
+  };
+
   const formatDate = (d) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
   return (
@@ -351,7 +382,24 @@ function ContactDetail({ callsign, onBack }) {
               <div className="text-3xl sm:text-4xl font-bold text-amber-500 font-mono amber-glow" data-testid="detail-callsign">{data.callsign}</div>
             </div>
             {getCountryName(data.callsign) && <div className="text-xs text-zinc-500 font-mono uppercase tracking-wider mb-1">{getCountryName(data.callsign)}</div>}
-            <div className="text-lg text-zinc-300 font-mono mb-6">{data.name}</div>
+            <div className="flex items-center gap-2 mb-6">
+              {editingName ? (
+                <div className="flex items-center gap-2 flex-1">
+                  <Input value={nameValue} onChange={(e) => setNameValue(e.target.value)} placeholder="Nom du contact"
+                    className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm h-9 flex-1" autoFocus
+                    onKeyDown={(e) => { if (e.key === "Enter") saveContactName(); if (e.key === "Escape") setEditingName(false); }} />
+                  <button onClick={saveContactName} className="p-1.5 text-green-500 hover:text-green-400" data-testid="save-name-btn"><Check size={18} /></button>
+                  <button onClick={() => setEditingName(false)} className="p-1.5 text-zinc-500 hover:text-zinc-300"><X size={18} /></button>
+                </div>
+              ) : (
+                <>
+                  <span className="text-lg text-zinc-300 font-mono">{data.name || "Nom inconnu"}</span>
+                  <button onClick={startEditName} className="p-1 text-zinc-500 hover:text-amber-500 transition-colors" data-testid="edit-name-btn">
+                    <Pencil size={16} />
+                  </button>
+                </>
+              )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-[#09090b] border border-zinc-800 p-4">
                 <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1 flex items-center gap-1"><CalendarBlank size={12} /> Premier contact</div>
@@ -383,18 +431,22 @@ function ContactDetail({ callsign, onBack }) {
               {data.history.map((qso) => (
                 <div key={qso.id} className="p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors" data-testid="history-entry">
                   <div className="flex items-center justify-between mb-1">
-                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 font-mono text-sm">
+                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 font-mono text-sm">
                       <div>
                         <span className="text-zinc-500 text-xs">Date</span>
                         <div className="text-zinc-200">{formatDate(qso.date)}</div>
                       </div>
                       <div>
                         <span className="text-zinc-500 text-xs">Fréquence</span>
-                        <div className="text-zinc-200">{qso.frequency.toFixed(3)} MHz</div>
+                        <div className="text-zinc-200">{qso.frequency.toFixed(3)} MHz{getBand(qso.frequency) ? ` (${getBand(qso.frequency)})` : ""}</div>
                       </div>
-                      <div className="col-span-2 sm:col-span-1">
+                      <div>
+                        <span className="text-zinc-500 text-xs">Mode</span>
+                        <div className="text-zinc-200">{qso.mode || "—"}</div>
+                      </div>
+                      <div>
                         <span className="text-zinc-500 text-xs">Nom</span>
-                        <div className="text-zinc-300">{qso.name}</div>
+                        <div className="text-zinc-300">{qso.name || "—"}</div>
                       </div>
                     </div>
                     <button onClick={() => handleDelete(qso.id)} className="ml-3 p-2 text-zinc-600 hover:text-red-500 transition-colors shrink-0" data-testid="delete-history-entry-btn">
@@ -402,7 +454,7 @@ function ContactDetail({ callsign, onBack }) {
                     </button>
                   </div>
                   {qso.comment && (
-                    <div className="mt-2 pl-0 sm:pl-1 text-xs text-zinc-400 font-mono italic border-l-2 border-zinc-700 pl-3" data-testid="history-comment">
+                    <div className="mt-2 text-xs text-zinc-400 font-mono italic border-l-2 border-zinc-700 pl-3" data-testid="history-comment">
                       {qso.comment}
                     </div>
                   )}
