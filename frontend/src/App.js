@@ -30,6 +30,8 @@ import { Label } from "@/components/ui/label";
 import { getFlagUrl, getCountryName } from "@/utils/callsignFlags";
 import { getBand } from "@/utils/bands";
 
+const LOGO_URL = "https://customer-assets.emergentagent.com/job_radio-memory/artifacts/gnvrdwzf_1000015588.png";
+
 const MODES = ["FM", "SSB", "CW", "FT8", "FT4", "DMR", "C4FM", "D-STAR", "AM", "RTTY", "PSK31", "SSTV"];
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -105,12 +107,8 @@ function LoginPage({ onSwitch }) {
     <div className="min-h-screen bg-[#09090b] flex items-center justify-center p-4 relative">
       <div className="radio-bg"></div>
       <div className="relative z-10 w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-3 h-3 rounded-full bg-amber-500 animate-pulse"></div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight uppercase text-zinc-100">QSO POCKET</h1>
-          </div>
-          <p className="text-zinc-500 font-mono text-sm uppercase tracking-widest">Carnet de Trafic</p>
+        <div className="text-center mb-6">
+          <img src={LOGO_URL} alt="QSO Pocket" className="h-24 sm:h-28 mx-auto" />
         </div>
         <div className="bg-[#121212] border border-zinc-800/80 p-6 sm:p-8" data-testid="login-form">
           <h2 className="font-display text-2xl font-semibold tracking-tight uppercase text-zinc-100 mb-6 flex items-center gap-2">
@@ -162,12 +160,8 @@ function RegisterPage({ onSwitch }) {
     <div className="min-h-screen bg-[#09090b] flex items-center justify-center p-4 relative">
       <div className="radio-bg"></div>
       <div className="relative z-10 w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-3 h-3 rounded-full bg-amber-500 animate-pulse"></div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight uppercase text-zinc-100">QSO POCKET</h1>
-          </div>
-          <p className="text-zinc-500 font-mono text-sm uppercase tracking-widest">Carnet de Trafic</p>
+        <div className="text-center mb-6">
+          <img src={LOGO_URL} alt="QSO Pocket" className="h-24 sm:h-28 mx-auto" />
         </div>
         <div className="bg-[#121212] border border-zinc-800/80 p-6 sm:p-8" data-testid="register-form">
           <h2 className="font-display text-2xl font-semibold tracking-tight uppercase text-zinc-100 mb-6 flex items-center gap-2">
@@ -554,9 +548,8 @@ function Dashboard() {
       <div className="relative z-10 max-w-[1100px] mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
         {/* Header */}
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-zinc-800 pb-4 mb-6 gap-3" data-testid="app-header">
-          <div className="flex items-center gap-3">
-            <div className="w-3 h-3 rounded-full bg-amber-500 animate-pulse shrink-0"></div>
-            <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight uppercase text-zinc-100">QSO POCKET</h1>
+          <div className="flex items-center gap-2">
+            <img src={LOGO_URL} alt="QSO Pocket" className="h-8 sm:h-10" />
           </div>
           <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">
             <div className="font-mono text-xs sm:text-sm text-amber-500 tracking-wide" data-testid="user-callsign-display">
