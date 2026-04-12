@@ -227,7 +227,7 @@ function RegisterPage({ onSwitch }) {
                 type="text"
                 value={callsign}
                 onChange={(e) => setCallsign(e.target.value.toUpperCase())}
-                placeholder="F4MVD"
+                placeholder="Votre indicatif"
                 className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm uppercase"
               />
               <p className="text-xs text-zinc-600 font-mono">Votre indicatif unique (ex: F4MVD)</p>
