@@ -231,14 +231,13 @@ class QSO(QSOBase):
 async def create_qso(qso_data: QSOCreate, request: Request):
     user = await get_current_user(request)
     
-    # Anti-doublon: same callsign + date + owner
+    # Anti-doublon: même indicatif déjà dans le carnet
     existing = await db.qsos.find_one({
         "callsign": qso_data.callsign.upper(),
-        "date": qso_data.date,
         "owner_id": user["id"]
     }, {"_id": 0})
     if existing:
-        raise HTTPException(status_code=409, detail="Ce QSO existe déjà (même indicatif et date)")
+        raise HTTPException(status_code=409, detail="Cet indicatif est déjà dans la liste")
     
     qso_id = str(uuid.uuid4())
     doc = {

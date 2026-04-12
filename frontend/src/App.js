@@ -351,7 +351,7 @@ function Dashboard() {
       setMobileFormOpen(false);
     } catch (error) {
       const msg = error.response?.status === 409
-        ? "Ce QSO existe déjà (même indicatif et date)"
+        ? "Cet indicatif est déjà dans la liste"
         : "Erreur lors de l'ajout";
       toast.error(msg);
     }
