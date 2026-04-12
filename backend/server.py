@@ -208,7 +208,7 @@ class QSOCreate(BaseModel):
     callsign: str = Field(..., min_length=1, max_length=20)
     date: str
     frequency: float = Field(..., gt=0)
-    name: str = Field(..., min_length=1, max_length=100)
+    name: str = Field("", max_length=100)
     comment: Optional[str] = ""
 
 class QSOUpdate(BaseModel):

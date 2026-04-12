@@ -198,12 +198,12 @@ function RegisterPage({ onSwitch }) {
 }
 
 // === Add QSO Modal ===
-function AddQSOModal({ callsign, onClose, onAdded }) {
+function AddQSOModal({ callsign, prefillName, onClose, onAdded }) {
   const [formData, setFormData] = useState({
     callsign: callsign || "",
     date: new Date().toISOString().split("T")[0],
     frequency: "",
-    name: "",
+    name: prefillName || "",
     comment: "",
   });
 
@@ -215,8 +215,8 @@ function AddQSOModal({ callsign, onClose, onAdded }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.callsign || !formData.date || !formData.frequency || !formData.name) {
-      toast.error("Veuillez remplir tous les champs"); return;
+    if (!formData.callsign || !formData.date || !formData.frequency) {
+      toast.error("Veuillez remplir l'indicatif, la date et la fréquence"); return;
     }
     try {
       await axios.post(`${API}/qso`, {
@@ -271,7 +271,7 @@ function AddQSOModal({ callsign, onClose, onAdded }) {
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><User size={14} /> Nom</Label>
             <Input data-testid="qso-name-input" type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Jean" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+              placeholder="Nom (optionnel)" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Pencil size={14} /> Commentaire</Label>
@@ -412,7 +412,7 @@ function ContactDetail({ callsign, onBack }) {
           </div>
 
           {showAddModal && (
-            <AddQSOModal callsign={data.callsign} onClose={() => setShowAddModal(false)} onAdded={fetchHistory} />
+            <AddQSOModal callsign={data.callsign} prefillName={data.name} onClose={() => setShowAddModal(false)} onAdded={fetchHistory} />
           )}
         </>
       )}}
