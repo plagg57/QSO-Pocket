@@ -21,7 +21,8 @@ import {
   ArrowLeft,
   Clock,
   Hash,
-  Check
+  Check,
+  Export
 } from "@phosphor-icons/react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -584,6 +585,21 @@ function Dashboard() {
                 <div className="text-3xl sm:text-4xl font-bold tracking-tighter text-amber-500 amber-glow font-mono">{stats.total_qsos}</div>
               </div>
             </div>
+
+            {/* Export ADIF */}
+            {stats.total_qsos > 0 && (
+              <button onClick={() => {
+                const link = document.createElement("a");
+                const token = localStorage.getItem("qso_token");
+                fetch(`${API}/qso/export/adif`, { credentials: "include", headers: token ? { Authorization: `Bearer ${token}` } : {} })
+                  .then(r => r.blob())
+                  .then(blob => { link.href = URL.createObjectURL(blob); link.download = "qso_log.adi"; link.click(); })
+                  .catch(() => toast.error("Erreur export ADIF"));
+              }} data-testid="export-adif-btn"
+                className="w-full mb-6 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#121212] hover:bg-[#1a1a1a] text-zinc-300 border border-zinc-800 font-mono text-xs uppercase tracking-wider transition-all duration-200">
+                <Export size={16} className="text-amber-500" /> Exporter en ADIF
+              </button>
+            )}
 
             {/* Search bar */}
             <div className="mb-4">

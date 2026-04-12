@@ -308,6 +308,89 @@ async def update_contact_name(callsign: str, data: UpdateNameRequest, request: R
         raise HTTPException(status_code=404, detail="Aucun QSO trouvé pour cet indicatif")
     return {"message": "Nom mis à jour", "updated": result.modified_count}
 
+# Export ADIF
+@api_router.get("/qso/export/adif")
+async def export_adif(request: Request):
+    from fastapi.responses import Response as RawResponse
+    user = await get_current_user(request)
+    qsos = await db.qsos.find({"owner_id": user["id"]}, {"_id": 0}).sort("date", 1).to_list(10000)
+
+    def adif_field(name, value):
+        if not value:
+            return ""
+        v = str(value)
+        return f"<{name}:{len(v)}>{v}"
+
+    lines = []
+    # ADIF header
+    lines.append("ADIF Export from QSO LOG")
+    lines.append(f"<ADIF_VER:5>3.1.4")
+    lines.append(f"<PROGRAMID:7>QSO_LOG")
+    lines.append(f"<PROGRAMVERSION:3>1.0")
+    lines.append("<EOH>\n")
+
+    for qso in qsos:
+        record = ""
+        record += adif_field("CALL", qso.get("callsign", ""))
+
+        # Date: convert YYYY-MM-DD to YYYYMMDD
+        raw_date = qso.get("date", "")
+        if raw_date:
+            qso_date = raw_date.replace("-", "")
+            record += adif_field("QSO_DATE", qso_date)
+
+        freq = qso.get("frequency")
+        if freq:
+            record += adif_field("FREQ", f"{freq:.6f}")
+
+        # Band from frequency
+        band = freq_to_band(freq) if freq else None
+        if band:
+            record += adif_field("BAND", band)
+
+        mode = qso.get("mode", "")
+        if mode:
+            record += adif_field("MODE", mode)
+
+        name = qso.get("name", "")
+        if name:
+            record += adif_field("NAME", name)
+
+        comment = qso.get("comment", "")
+        if comment:
+            record += adif_field("COMMENT", comment)
+
+        record += adif_field("MY_CALLSIGN", user.get("callsign", ""))
+        record += "<EOR>\n"
+        lines.append(record)
+
+    content = "\n".join(lines)
+    callsign = user.get("callsign", "qso_log").replace("/", "_")
+    filename = f"{callsign}_qso_log.adi"
+    return RawResponse(
+        content=content.encode("utf-8"),
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+def freq_to_band(freq_mhz):
+    if not freq_mhz:
+        return None
+    f = float(freq_mhz)
+    bands = [
+        (0.1357, 0.1378, "2190m"), (0.472, 0.479, "630m"),
+        (1.8, 2.0, "160m"), (3.5, 3.8, "80m"), (5.3515, 5.3665, "60m"),
+        (7.0, 7.2, "40m"), (10.1, 10.15, "30m"), (14.0, 14.35, "20m"),
+        (18.068, 18.168, "17m"), (21.0, 21.45, "15m"), (24.89, 24.99, "12m"),
+        (28.0, 29.7, "10m"), (50.0, 52.0, "6m"), (70.0, 70.5, "4m"),
+        (144.0, 146.0, "2m"), (430.0, 440.0, "70cm"),
+        (1240.0, 1300.0, "23cm"), (2300.0, 2450.0, "13cm"),
+    ]
+    for lo, hi, name in bands:
+        if lo <= f <= hi:
+            return name
+    return None
+
 @api_router.get("/qso/stats/total")
 async def get_qso_stats(request: Request):
     user = await get_current_user(request)
