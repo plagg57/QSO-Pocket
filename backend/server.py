@@ -209,12 +209,14 @@ class QSOCreate(BaseModel):
     date: str
     frequency: float = Field(..., gt=0)
     name: str = Field(..., min_length=1, max_length=100)
+    comment: Optional[str] = ""
 
 class QSOUpdate(BaseModel):
     callsign: Optional[str] = None
     date: Optional[str] = None
     frequency: Optional[float] = None
     name: Optional[str] = None
+    comment: Optional[str] = None
 
 # === QSO Endpoints (Protected) ===
 @api_router.post("/qso")
@@ -228,6 +230,7 @@ async def create_qso(qso_data: QSOCreate, request: Request):
         "date": qso_data.date,
         "frequency": qso_data.frequency,
         "name": qso_data.name,
+        "comment": qso_data.comment or "",
         "owner_id": user["id"],
         "owner_callsign": user["callsign"],
         "created_at": datetime.now(timezone.utc).isoformat()

@@ -25,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { getFlagUrl, getCountryName } from "@/utils/callsignFlags";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -203,6 +204,7 @@ function AddQSOModal({ callsign, onClose, onAdded }) {
     date: new Date().toISOString().split("T")[0],
     frequency: "",
     name: "",
+    comment: "",
   });
 
   useEffect(() => {
@@ -230,9 +232,12 @@ function AddQSOModal({ callsign, onClose, onAdded }) {
     }
   };
 
+  const flagUrl = getFlagUrl(formData.callsign, 32);
+  const countryName = getCountryName(formData.callsign);
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-[#121212] border border-zinc-800 w-full max-w-md p-6" onClick={(e) => e.stopPropagation()} data-testid="add-qso-modal">
+      <div className="bg-[#121212] border border-zinc-800 w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} data-testid="add-qso-modal">
         <div className="flex items-center justify-between mb-6">
           <h2 className="font-display text-xl font-semibold tracking-tight uppercase text-zinc-100 flex items-center gap-2">
             <Plus size={20} className="text-amber-500" /> Nouveau QSO
@@ -242,8 +247,16 @@ function AddQSOModal({ callsign, onClose, onAdded }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><IdentificationCard size={14} /> Indicatif</Label>
-            <Input data-testid="qso-callsign-input" type="text" value={formData.callsign} onChange={(e) => setFormData({ ...formData, callsign: e.target.value.toUpperCase() })}
-              placeholder="F4ABC" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm uppercase" />
+            <div className="relative">
+              <Input data-testid="qso-callsign-input" type="text" value={formData.callsign} onChange={(e) => setFormData({ ...formData, callsign: e.target.value.toUpperCase() })}
+                placeholder="F4ABC" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm uppercase pr-16" />
+              {flagUrl && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                  <img src={flagUrl} alt={countryName} className="h-4 shadow-sm" />
+                  <span className="text-xs text-zinc-500 font-mono">{countryName}</span>
+                </div>
+              )}
+            </div>
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><CalendarBlank size={14} /> Date</Label>
@@ -259,6 +272,13 @@ function AddQSOModal({ callsign, onClose, onAdded }) {
             <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><User size={14} /> Nom</Label>
             <Input data-testid="qso-name-input" type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Jean" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Pencil size={14} /> Commentaire</Label>
+            <textarea data-testid="qso-comment-input" value={formData.comment} onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
+              placeholder="Notes sur le contact (optionnel)"
+              rows={2}
+              className="flex w-full bg-[#09090b] border border-zinc-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-zinc-100 rounded-none font-mono text-sm px-3 py-2 placeholder:text-zinc-600 resize-none" />
           </div>
           <Button data-testid="qso-submit-button" type="submit"
             className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none h-12 transition-all duration-200 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]">
@@ -326,7 +346,11 @@ function ContactDetail({ callsign, onBack }) {
         <>
           {/* Info Card */}
           <div className="bg-[#121212] border border-zinc-800/80 p-5 sm:p-6 mb-4">
-            <div className="text-3xl sm:text-4xl font-bold text-amber-500 font-mono mb-4 amber-glow" data-testid="detail-callsign">{data.callsign}</div>
+            <div className="flex items-center gap-3 mb-2">
+              {getFlagUrl(data.callsign, 32) && <img src={getFlagUrl(data.callsign, 32)} alt={getCountryName(data.callsign)} className="h-5 shadow-sm" />}
+              <div className="text-3xl sm:text-4xl font-bold text-amber-500 font-mono amber-glow" data-testid="detail-callsign">{data.callsign}</div>
+            </div>
+            {getCountryName(data.callsign) && <div className="text-xs text-zinc-500 font-mono uppercase tracking-wider mb-1">{getCountryName(data.callsign)}</div>}
             <div className="text-lg text-zinc-300 font-mono mb-6">{data.name}</div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-[#09090b] border border-zinc-800 p-4">
@@ -357,24 +381,31 @@ function ContactDetail({ callsign, onBack }) {
             </div>
             <div className="divide-y divide-zinc-800/50">
               {data.history.map((qso) => (
-                <div key={qso.id} className="p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors flex items-center justify-between" data-testid="history-entry">
-                  <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 font-mono text-sm">
-                    <div>
-                      <span className="text-zinc-500 text-xs">Date</span>
-                      <div className="text-zinc-200">{formatDate(qso.date)}</div>
+                <div key={qso.id} className="p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors" data-testid="history-entry">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 font-mono text-sm">
+                      <div>
+                        <span className="text-zinc-500 text-xs">Date</span>
+                        <div className="text-zinc-200">{formatDate(qso.date)}</div>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 text-xs">Fréquence</span>
+                        <div className="text-zinc-200">{qso.frequency.toFixed(3)} MHz</div>
+                      </div>
+                      <div className="col-span-2 sm:col-span-1">
+                        <span className="text-zinc-500 text-xs">Nom</span>
+                        <div className="text-zinc-300">{qso.name}</div>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-zinc-500 text-xs">Fréquence</span>
-                      <div className="text-zinc-200">{qso.frequency.toFixed(3)} MHz</div>
-                    </div>
-                    <div className="col-span-2 sm:col-span-1">
-                      <span className="text-zinc-500 text-xs">Nom</span>
-                      <div className="text-zinc-300">{qso.name}</div>
-                    </div>
+                    <button onClick={() => handleDelete(qso.id)} className="ml-3 p-2 text-zinc-600 hover:text-red-500 transition-colors shrink-0" data-testid="delete-history-entry-btn">
+                      <Trash size={16} />
+                    </button>
                   </div>
-                  <button onClick={() => handleDelete(qso.id)} className="ml-3 p-2 text-zinc-600 hover:text-red-500 transition-colors shrink-0" data-testid="delete-history-entry-btn">
-                    <Trash size={16} />
-                  </button>
+                  {qso.comment && (
+                    <div className="mt-2 pl-0 sm:pl-1 text-xs text-zinc-400 font-mono italic border-l-2 border-zinc-700 pl-3" data-testid="history-comment">
+                      {qso.comment}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -384,7 +415,7 @@ function ContactDetail({ callsign, onBack }) {
             <AddQSOModal callsign={data.callsign} onClose={() => setShowAddModal(false)} onAdded={fetchHistory} />
           )}
         </>
-      )}
+      )}}
     </div>
   );
 }
@@ -515,26 +546,31 @@ function Dashboard() {
                 </div>
               ) : (
                 <div className="divide-y divide-zinc-800/50">
-                  {grouped.map((entry) => (
+                  {grouped.map((entry) => {
+                    const flagUrl = getFlagUrl(entry.callsign, 24);
+                    const country = getCountryName(entry.callsign);
+                    return (
                     <button key={entry.callsign} onClick={() => setSelectedCallsign(entry.callsign)}
                       className="w-full text-left p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors flex items-center justify-between group" data-testid="callsign-row">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-1">
+                        <div className="flex items-center gap-2 sm:gap-3 mb-1.5">
+                          {flagUrl && <img src={flagUrl} alt={country} className="h-3.5 sm:h-4 shadow-sm shrink-0" data-testid="callsign-flag" />}
                           <span className="font-bold text-amber-500 font-mono text-base sm:text-lg">{entry.callsign}</span>
-                          <span className="text-zinc-400 font-mono text-sm">{entry.name}</span>
+                          <span className="text-zinc-400 font-mono text-sm truncate">{entry.name}</span>
                         </div>
-                        <div className="flex items-center gap-4 text-xs font-mono text-zinc-500">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-4 text-xs font-mono text-zinc-500">
                           <span>Premier contact : {formatDate(entry.first_contact)}</span>
-                          <span className="hidden sm:inline">|</span>
+                          <span>Dernier contact : {formatDate(entry.last_contact)}</span>
                           <span className="hidden sm:inline">{entry.total_contacts} contact{entry.total_contacts > 1 ? "s" : ""}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="sm:hidden text-xs text-zinc-600 font-mono">{entry.total_contacts}</span>
+                        <span className="text-xs text-zinc-600 font-mono">{entry.total_contacts}</span>
                         <CaretRight size={18} className="text-zinc-600 group-hover:text-amber-500 transition-colors" />
                       </div>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
