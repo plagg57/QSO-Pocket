@@ -193,6 +193,12 @@ function AddQSOModal({ callsign, onClose, onAdded }) {
     name: "",
   });
 
+  useEffect(() => {
+    const handleEscape = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [onClose]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.callsign || !formData.date || !formData.frequency || !formData.name) {
@@ -213,7 +219,7 @@ function AddQSOModal({ callsign, onClose, onAdded }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-[#121212] border border-zinc-800 w-full max-w-md p-6" onClick={(e) => e.stopPropagation()} data-testid="add-qso-modal">
         <div className="flex items-center justify-between mb-6">
           <h2 className="font-display text-xl font-semibold tracking-tight uppercase text-zinc-100 flex items-center gap-2">
@@ -225,7 +231,7 @@ function AddQSOModal({ callsign, onClose, onAdded }) {
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><IdentificationCard size={14} /> Indicatif</Label>
             <Input data-testid="qso-callsign-input" type="text" value={formData.callsign} onChange={(e) => setFormData({ ...formData, callsign: e.target.value.toUpperCase() })}
-              placeholder="F4ABC" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm uppercase" readOnly={!!callsign} />
+              placeholder="F4ABC" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm uppercase" />
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><CalendarBlank size={14} /> Date</Label>
