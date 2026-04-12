@@ -30,6 +30,15 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 axios.defaults.withCredentials = true;
 
+// Intercept requests to add token header as fallback for mobile
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem("qso_token");
+  if (token && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 // === Auth Context ===
 const AuthContext = createContext(null);
 function useAuth() { return useContext(AuthContext); }
@@ -53,14 +62,17 @@ function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const { data } = await axios.post(`${API}/auth/login`, { email, password });
+    if (data.access_token) localStorage.setItem("qso_token", data.access_token);
     setUser(data);
   };
   const register = async (email, password, callsign) => {
     const { data } = await axios.post(`${API}/auth/register`, { email, password, callsign });
+    if (data.access_token) localStorage.setItem("qso_token", data.access_token);
     setUser(data);
   };
   const logout = async () => {
     await axios.post(`${API}/auth/logout`);
+    localStorage.removeItem("qso_token");
     setUser(false);
   };
 
@@ -262,13 +274,19 @@ function AddQSOModal({ callsign, onClose, onAdded }) {
 function ContactDetail({ callsign, onBack }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
 
   const fetchHistory = useCallback(async () => {
+    setError(false);
     try {
-      const res = await axios.get(`${API}/qso/history/${callsign}`);
+      const res = await axios.get(`${API}/qso/history/${encodeURIComponent(callsign)}`);
       setData(res.data);
-    } catch { toast.error("Erreur chargement historique"); }
+    } catch (err) {
+      console.error("History fetch error:", err.response?.status, err.response?.data);
+      setError(true);
+      toast.error("Erreur chargement historique");
+    }
     finally { setLoading(false); }
   }, [callsign]);
 
@@ -285,80 +303,87 @@ function ContactDetail({ callsign, onBack }) {
 
   const formatDate = (d) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
-  if (loading) return (
-    <div className="p-8 text-center">
-      <div className="inline-block w-4 h-6 bg-amber-500 animate-pulse"></div>
-      <p className="mt-4 text-zinc-500 font-mono text-sm">Chargement...</p>
-    </div>
-  );
-
-  if (!data) return null;
-
   return (
     <div data-testid="contact-detail-panel">
-      {/* Header */}
+      {/* Header - ALWAYS visible */}
       <button onClick={onBack} className="flex items-center gap-2 text-zinc-400 hover:text-amber-500 transition-colors font-mono text-sm mb-6" data-testid="back-to-list-btn">
         <ArrowLeft size={18} /> Retour à la liste
       </button>
 
-      {/* Info Card */}
-      <div className="bg-[#121212] border border-zinc-800/80 p-5 sm:p-6 mb-4">
-        <div className="text-3xl sm:text-4xl font-bold text-amber-500 font-mono mb-4 amber-glow" data-testid="detail-callsign">{data.callsign}</div>
-        <div className="text-lg text-zinc-300 font-mono mb-6">{data.name}</div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-[#09090b] border border-zinc-800 p-4">
-            <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1 flex items-center gap-1"><CalendarBlank size={12} /> Premier contact</div>
-            <div className="text-sm text-zinc-200 font-mono" data-testid="detail-first-contact">{formatDate(data.first_contact)}</div>
-          </div>
-          <div className="bg-[#09090b] border border-zinc-800 p-4">
-            <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1 flex items-center gap-1"><Clock size={12} /> Dernier contact</div>
-            <div className="text-sm text-zinc-200 font-mono" data-testid="detail-last-contact">{formatDate(data.last_contact)}</div>
-          </div>
-          <div className="bg-[#09090b] border border-zinc-800 p-4">
-            <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1 flex items-center gap-1"><Hash size={12} /> Total contacts</div>
-            <div className="text-2xl font-bold text-amber-500 font-mono" data-testid="detail-total-contacts">{data.total_contacts}</div>
-          </div>
+      {loading ? (
+        <div className="p-8 text-center">
+          <div className="inline-block w-4 h-6 bg-amber-500 animate-pulse"></div>
+          <p className="mt-4 text-zinc-500 font-mono text-sm">Chargement...</p>
         </div>
-      </div>
-
-      {/* Add new contact button */}
-      <Button onClick={() => setShowAddModal(true)} data-testid="add-contact-to-callsign-btn"
-        className="w-full mb-4 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/30 font-bold uppercase tracking-wider rounded-none h-11 transition-all duration-200">
-        <Plus size={16} className="mr-2" /> Ajouter un contact avec {data.callsign}
-      </Button>
-
-      {/* History */}
-      <div className="bg-[#121212] border border-zinc-800/80">
-        <div className="px-5 py-3 border-b border-zinc-800">
-          <h3 className="font-display text-sm font-semibold tracking-tight uppercase text-zinc-400">Historique des contacts</h3>
+      ) : error || !data ? (
+        <div className="bg-[#121212] border border-zinc-800/80 p-8 text-center">
+          <p className="text-zinc-400 font-mono text-sm mb-4">Impossible de charger l'historique de {callsign}</p>
+          <Button onClick={fetchHistory} className="bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none">
+            Réessayer
+          </Button>
         </div>
-        <div className="divide-y divide-zinc-800/50">
-          {data.history.map((qso) => (
-            <div key={qso.id} className="p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors flex items-center justify-between" data-testid="history-entry">
-              <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 font-mono text-sm">
-                <div>
-                  <span className="text-zinc-500 text-xs">Date</span>
-                  <div className="text-zinc-200">{formatDate(qso.date)}</div>
-                </div>
-                <div>
-                  <span className="text-zinc-500 text-xs">Fréquence</span>
-                  <div className="text-zinc-200">{qso.frequency.toFixed(3)} MHz</div>
-                </div>
-                <div className="col-span-2 sm:col-span-1">
-                  <span className="text-zinc-500 text-xs">Nom</span>
-                  <div className="text-zinc-300">{qso.name}</div>
-                </div>
+      ) : (
+        <>
+          {/* Info Card */}
+          <div className="bg-[#121212] border border-zinc-800/80 p-5 sm:p-6 mb-4">
+            <div className="text-3xl sm:text-4xl font-bold text-amber-500 font-mono mb-4 amber-glow" data-testid="detail-callsign">{data.callsign}</div>
+            <div className="text-lg text-zinc-300 font-mono mb-6">{data.name}</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-[#09090b] border border-zinc-800 p-4">
+                <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1 flex items-center gap-1"><CalendarBlank size={12} /> Premier contact</div>
+                <div className="text-sm text-zinc-200 font-mono" data-testid="detail-first-contact">{formatDate(data.first_contact)}</div>
               </div>
-              <button onClick={() => handleDelete(qso.id)} className="ml-3 p-2 text-zinc-600 hover:text-red-500 transition-colors shrink-0" data-testid="delete-history-entry-btn">
-                <Trash size={16} />
-              </button>
+              <div className="bg-[#09090b] border border-zinc-800 p-4">
+                <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1 flex items-center gap-1"><Clock size={12} /> Dernier contact</div>
+                <div className="text-sm text-zinc-200 font-mono" data-testid="detail-last-contact">{formatDate(data.last_contact)}</div>
+              </div>
+              <div className="bg-[#09090b] border border-zinc-800 p-4">
+                <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1 flex items-center gap-1"><Hash size={12} /> Total contacts</div>
+                <div className="text-2xl font-bold text-amber-500 font-mono" data-testid="detail-total-contacts">{data.total_contacts}</div>
+              </div>
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      {showAddModal && (
-        <AddQSOModal callsign={data.callsign} onClose={() => setShowAddModal(false)} onAdded={fetchHistory} />
+          {/* Add new contact button */}
+          <Button onClick={() => setShowAddModal(true)} data-testid="add-contact-to-callsign-btn"
+            className="w-full mb-4 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/30 font-bold uppercase tracking-wider rounded-none h-11 transition-all duration-200">
+            <Plus size={16} className="mr-2" /> Ajouter un contact avec {data.callsign}
+          </Button>
+
+          {/* History */}
+          <div className="bg-[#121212] border border-zinc-800/80">
+            <div className="px-5 py-3 border-b border-zinc-800">
+              <h3 className="font-display text-sm font-semibold tracking-tight uppercase text-zinc-400">Historique des contacts</h3>
+            </div>
+            <div className="divide-y divide-zinc-800/50">
+              {data.history.map((qso) => (
+                <div key={qso.id} className="p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors flex items-center justify-between" data-testid="history-entry">
+                  <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 font-mono text-sm">
+                    <div>
+                      <span className="text-zinc-500 text-xs">Date</span>
+                      <div className="text-zinc-200">{formatDate(qso.date)}</div>
+                    </div>
+                    <div>
+                      <span className="text-zinc-500 text-xs">Fréquence</span>
+                      <div className="text-zinc-200">{qso.frequency.toFixed(3)} MHz</div>
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <span className="text-zinc-500 text-xs">Nom</span>
+                      <div className="text-zinc-300">{qso.name}</div>
+                    </div>
+                  </div>
+                  <button onClick={() => handleDelete(qso.id)} className="ml-3 p-2 text-zinc-600 hover:text-red-500 transition-colors shrink-0" data-testid="delete-history-entry-btn">
+                    <Trash size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {showAddModal && (
+            <AddQSOModal callsign={data.callsign} onClose={() => setShowAddModal(false)} onAdded={fetchHistory} />
+          )}
+        </>
       )}
     </div>
   );

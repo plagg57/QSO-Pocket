@@ -81,8 +81,8 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
-    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=86400, path="/")
-    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=86400, path="/")
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True, samesite="none", max_age=604800, path="/")
 
 # Create the main app
 app = FastAPI()
@@ -133,7 +133,7 @@ async def register(data: RegisterRequest, response: Response):
     refresh_token = create_refresh_token(user_id)
     set_auth_cookies(response, access_token, refresh_token)
     
-    return {"id": user_id, "email": email, "callsign": callsign, "role": "user"}
+    return {"id": user_id, "email": email, "callsign": callsign, "role": "user", "access_token": access_token}
 
 @api_router.post("/auth/login")
 async def login(data: LoginRequest, request: Request, response: Response):
@@ -170,7 +170,7 @@ async def login(data: LoginRequest, request: Request, response: Response):
     refresh_token = create_refresh_token(user["id"])
     set_auth_cookies(response, access_token, refresh_token)
     
-    return {"id": user["id"], "email": user["email"], "callsign": user["callsign"], "role": user.get("role", "user")}
+    return {"id": user["id"], "email": user["email"], "callsign": user["callsign"], "role": user.get("role", "user"), "access_token": access_token}
 
 @api_router.post("/auth/logout")
 async def logout(response: Response):
@@ -196,7 +196,7 @@ async def refresh_token(request: Request, response: Response):
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
         access_token = create_access_token(user["id"], user["email"])
-        response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=86400, path="/")
+        response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=86400, path="/")
         return {"message": "Token refreshed"}
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Refresh token expired")
