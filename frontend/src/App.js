@@ -108,7 +108,7 @@ function LoginPage({ onSwitch }) {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="w-3 h-3 rounded-full bg-amber-500 animate-pulse"></div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight uppercase text-zinc-100">QSO LOG</h1>
+            <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight uppercase text-zinc-100">QSO POCKET</h1>
           </div>
           <p className="text-zinc-500 font-mono text-sm uppercase tracking-widest">Carnet de Trafic</p>
         </div>
@@ -118,8 +118,8 @@ function LoginPage({ onSwitch }) {
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Envelope size={14} /> Email</Label>
-              <Input data-testid="login-email-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="votre@email.com" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+              <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Envelope size={14} /> Email ou indicatif</Label>
+              <Input data-testid="login-email-input" type="text" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="votre@email.com ou F4MVD" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Lock size={14} /> Mot de passe</Label>
@@ -165,7 +165,7 @@ function RegisterPage({ onSwitch }) {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="w-3 h-3 rounded-full bg-amber-500 animate-pulse"></div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight uppercase text-zinc-100">QSO LOG</h1>
+            <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight uppercase text-zinc-100">QSO POCKET</h1>
           </div>
           <p className="text-zinc-500 font-mono text-sm uppercase tracking-widest">Carnet de Trafic</p>
         </div>
@@ -556,7 +556,7 @@ function Dashboard() {
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-zinc-800 pb-4 mb-6 gap-3" data-testid="app-header">
           <div className="flex items-center gap-3">
             <div className="w-3 h-3 rounded-full bg-amber-500 animate-pulse shrink-0"></div>
-            <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight uppercase text-zinc-100">QSO LOG</h1>
+            <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight uppercase text-zinc-100">QSO POCKET</h1>
           </div>
           <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">
             <div className="font-mono text-xs sm:text-sm text-amber-500 tracking-wide" data-testid="user-callsign-display">

@@ -137,36 +137,39 @@ async def register(data: RegisterRequest, response: Response):
 
 @api_router.post("/auth/login")
 async def login(data: LoginRequest, request: Request, response: Response):
-    email = data.email.lower().strip()
+    identifier = data.email.strip()
+    
+    # Detect if login is by email or callsign
+    if "@" in identifier:
+        user = await db.users.find_one({"email": identifier.lower()})
+    else:
+        user = await db.users.find_one({"callsign": identifier.upper()})
     
     # Brute force check
     ip = request.client.host if request.client else "unknown"
-    identifier = f"{ip}:{email}"
-    attempt = await db.login_attempts.find_one({"identifier": identifier}, {"_id": 0})
+    bf_key = f"{ip}:{identifier.lower()}"
+    attempt = await db.login_attempts.find_one({"identifier": bf_key}, {"_id": 0})
     if attempt and attempt.get("count", 0) >= 5:
         lockout_until = attempt.get("lockout_until", "")
         if lockout_until and datetime.fromisoformat(lockout_until) > datetime.now(timezone.utc):
             raise HTTPException(status_code=429, detail="Trop de tentatives. Réessayez dans 15 minutes.")
         else:
-            await db.login_attempts.delete_one({"identifier": identifier})
+            await db.login_attempts.delete_one({"identifier": bf_key})
     
-    user = await db.users.find_one({"email": email})
     if not user or not verify_password(data.password, user["password_hash"]):
-        # Increment failed attempts
         if attempt:
             new_count = attempt.get("count", 0) + 1
             update = {"$set": {"count": new_count}}
             if new_count >= 5:
                 update["$set"]["lockout_until"] = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
-            await db.login_attempts.update_one({"identifier": identifier}, update)
+            await db.login_attempts.update_one({"identifier": bf_key}, update)
         else:
-            await db.login_attempts.insert_one({"identifier": identifier, "count": 1})
-        raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
+            await db.login_attempts.insert_one({"identifier": bf_key, "count": 1})
+        raise HTTPException(status_code=401, detail="Identifiant ou mot de passe incorrect")
     
-    # Clear failed attempts on success
-    await db.login_attempts.delete_one({"identifier": identifier})
+    await db.login_attempts.delete_one({"identifier": bf_key})
     
-    access_token = create_access_token(user["id"], email)
+    access_token = create_access_token(user["id"], user["email"])
     refresh_token = create_refresh_token(user["id"])
     set_auth_cookies(response, access_token, refresh_token)
     
