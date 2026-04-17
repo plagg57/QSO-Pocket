@@ -127,13 +127,16 @@ function LoginPage({ onSwitch, onForgot }) {
               {loading ? "Connexion..." : "Se connecter"}
             </Button>
           </form>
-          <div className="mt-6 text-center space-y-3">
-            <button data-testid="switch-to-forgot" onClick={onForgot} className="text-sm text-amber-500 hover:text-amber-400 font-mono transition-colors block w-full underline underline-offset-4">
+          <div className="mt-6 space-y-3">
+            <button data-testid="switch-to-forgot" onClick={onForgot}
+              className="w-full py-2.5 text-sm font-mono uppercase tracking-wider text-amber-500 border border-amber-500/40 hover:bg-amber-500/10 transition-all duration-200">
               Mot de passe oublié ?
             </button>
-            <button data-testid="switch-to-register" onClick={onSwitch} className="text-sm text-zinc-500 hover:text-amber-500 font-mono transition-colors block w-full">
-              Pas de compte ? <span className="text-amber-500 underline">S'inscrire</span>
-            </button>
+            <div className="text-center">
+              <button data-testid="switch-to-register" onClick={onSwitch} className="text-sm text-zinc-500 hover:text-amber-500 font-mono transition-colors">
+                Pas de compte ? <span className="text-amber-500 underline">S'inscrire</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
