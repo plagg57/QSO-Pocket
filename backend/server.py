@@ -273,10 +273,54 @@ async def reset_password(data: ResetPasswordRequest):
 
     return {"message": "Mot de passe réinitialisé avec succès"}
 
+# === Profile Endpoints ===
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=6)
+
+class ChangeEmailRequest(BaseModel):
+    new_email: str
+    password: str
+
+@api_router.put("/auth/change-password")
+async def change_password(data: ChangePasswordRequest, request: Request):
+    user_info = await get_current_user(request)
+    user = await db.users.find_one({"id": user_info["id"]})
+    if not verify_password(data.current_password, user["password_hash"]):
+        raise HTTPException(status_code=400, detail="Mot de passe actuel incorrect")
+    await db.users.update_one({"id": user_info["id"]}, {"$set": {"password_hash": hash_password(data.new_password)}})
+    return {"message": "Mot de passe modifié avec succès"}
+
+@api_router.put("/auth/change-email")
+async def change_email(data: ChangeEmailRequest, request: Request):
+    user_info = await get_current_user(request)
+    user = await db.users.find_one({"id": user_info["id"]})
+    if not verify_password(data.password, user["password_hash"]):
+        raise HTTPException(status_code=400, detail="Mot de passe incorrect")
+    new_email = data.new_email.lower().strip()
+    existing = await db.users.find_one({"email": new_email})
+    if existing and existing["id"] != user_info["id"]:
+        raise HTTPException(status_code=400, detail="Cet email est déjà utilisé")
+    await db.users.update_one({"id": user_info["id"]}, {"$set": {"email": new_email}})
+    return {"message": "Email modifié avec succès", "email": new_email}
+
+# === QSO Check (anti-doublon) ===
+@api_router.get("/qso/check/{callsign}")
+async def check_callsign_exists(callsign: str, request: Request):
+    user = await get_current_user(request)
+    qsos = await db.qsos.find(
+        {"callsign": callsign.upper(), "owner_id": user["id"]},
+        {"_id": 0, "date": 1, "frequency": 1}
+    ).sort("date", -1).to_list(5)
+    if qsos:
+        return {"exists": True, "last_date": qsos[0]["date"], "count": len(qsos)}
+    return {"exists": False}
+
 # === QSO Models ===
 class QSOCreate(BaseModel):
     callsign: str = Field(..., min_length=1, max_length=20)
     date: str
+    time_utc: str = Field("", max_length=5)  # HH:MM format
     frequency: float = Field(..., gt=0)
     name: str = Field("", max_length=100)
     mode: str = Field("", max_length=20)
@@ -285,6 +329,7 @@ class QSOCreate(BaseModel):
 class QSOUpdate(BaseModel):
     callsign: Optional[str] = None
     date: Optional[str] = None
+    time_utc: Optional[str] = None
     frequency: Optional[float] = None
     name: Optional[str] = None
     mode: Optional[str] = None
@@ -300,6 +345,7 @@ async def create_qso(qso_data: QSOCreate, request: Request):
         "id": qso_id,
         "callsign": qso_data.callsign.upper(),
         "date": qso_data.date,
+        "time_utc": qso_data.time_utc or "",
         "frequency": qso_data.frequency,
         "name": qso_data.name,
         "mode": qso_data.mode.upper() if qso_data.mode else "",
@@ -314,7 +360,7 @@ async def create_qso(qso_data: QSOCreate, request: Request):
 
 # Grouped list: one entry per callsign
 @api_router.get("/qso/grouped")
-async def get_qsos_grouped(request: Request, search: Optional[str] = None):
+async def get_qsos_grouped(request: Request, search: Optional[str] = None, band: Optional[str] = None):
     user = await get_current_user(request)
     match_stage = {"owner_id": user["id"]}
     if search:
@@ -322,6 +368,19 @@ async def get_qsos_grouped(request: Request, search: Optional[str] = None):
             {"callsign": {"$regex": search, "$options": "i"}},
             {"name": {"$regex": search, "$options": "i"}}
         ]
+    
+    # Band filter: convert band name to frequency range
+    if band:
+        band_ranges = {
+            "160m": (1.8, 2.0), "80m": (3.5, 3.8), "40m": (7.0, 7.2), "30m": (10.1, 10.15),
+            "20m": (14.0, 14.35), "17m": (18.068, 18.168), "15m": (21.0, 21.45),
+            "12m": (24.89, 24.99), "10m": (28.0, 29.7), "6m": (50.0, 52.0),
+            "4m": (70.0, 70.5), "2m": (144.0, 146.0), "70cm": (430.0, 440.0),
+            "23cm": (1240.0, 1300.0),
+        }
+        if band in band_ranges:
+            lo, hi = band_ranges[band]
+            match_stage["frequency"] = {"$gte": lo, "$lte": hi}
     
     pipeline = [
         {"$match": match_stage},
@@ -408,6 +467,11 @@ async def export_adif(request: Request):
         if raw_date:
             qso_date = raw_date.replace("-", "")
             record += adif_field("QSO_DATE", qso_date)
+
+        # Time UTC: convert HH:MM to HHMM
+        time_utc = qso.get("time_utc", "")
+        if time_utc:
+            record += adif_field("TIME_ON", time_utc.replace(":", ""))
 
         freq = qso.get("frequency")
         if freq:

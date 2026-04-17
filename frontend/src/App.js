@@ -22,7 +22,8 @@ import {
   Clock,
   Hash,
   Check,
-  Export
+  Export,
+  Gear
 } from "@phosphor-icons/react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ import { getBand } from "@/utils/bands";
 const LOGO_URL = "https://customer-assets.emergentagent.com/job_radio-memory/artifacts/gnvrdwzf_1000015588.png";
 
 const MODES = ["FM", "SSB", "CW", "FT8", "FT4", "DMR", "C4FM", "D-STAR", "AM", "RTTY", "PSK31", "SSTV"];
+const BANDS = ["2m", "70cm", "20m", "40m", "80m", "10m", "15m", "6m", "160m", "30m", "17m", "12m", "4m", "23cm"];
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -353,20 +355,38 @@ function ResetPasswordPage({ token, onDone }) {
 
 // === Add QSO Modal ===
 function AddQSOModal({ callsign, prefillName, onClose, onAdded }) {
+  const now = new Date();
+  const utcHH = String(now.getUTCHours()).padStart(2, "0");
+  const utcMM = String(now.getUTCMinutes()).padStart(2, "0");
+
   const [formData, setFormData] = useState({
     callsign: callsign || "",
-    date: new Date().toISOString().split("T")[0],
+    date: now.toISOString().split("T")[0],
+    time_utc: `${utcHH}:${utcMM}`,
     frequency: "",
     mode: "",
     name: prefillName || "",
     comment: "",
   });
+  const [dupInfo, setDupInfo] = useState(null);
 
   useEffect(() => {
     const handleEscape = (e) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
   }, [onClose]);
+
+  // Anti-doublon check
+  useEffect(() => {
+    if (formData.callsign.length < 2) { setDupInfo(null); return; }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await axios.get(`${API}/qso/check/${encodeURIComponent(formData.callsign.toUpperCase())}`);
+        setDupInfo(res.data.exists ? res.data : null);
+      } catch { setDupInfo(null); }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [formData.callsign]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -412,11 +432,23 @@ function AddQSOModal({ callsign, prefillName, onClose, onAdded }) {
                 </div>
               )}
             </div>
+            {dupInfo && (
+              <div className="text-xs font-mono text-amber-500 bg-amber-500/10 border border-amber-500/20 px-3 py-2" data-testid="dup-warning">
+                Déjà contacté ({dupInfo.count}x) — dernier : {new Date(dupInfo.last_date).toLocaleDateString("fr-FR")}
+              </div>
+            )}
           </div>
-          <div className="space-y-2">
-            <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><CalendarBlank size={14} /> Date</Label>
-            <Input data-testid="qso-date-input" type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><CalendarBlank size={14} /> Date</Label>
+              <Input data-testid="qso-date-input" type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Clock size={14} /> Heure UTC</Label>
+              <Input data-testid="qso-time-input" type="time" value={formData.time_utc} onChange={(e) => setFormData({ ...formData, time_utc: e.target.value })}
+                className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+            </div>
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Broadcast size={14} /> Fréquence (MHz)</Label>
@@ -494,7 +526,7 @@ function ContactDetail({ callsign, onBack }) {
   const [nameValue, setNameValue] = useState("");
   const [editingModeId, setEditingModeId] = useState(null);
   const [editingQsoId, setEditingQsoId] = useState(null);
-  const [editQsoData, setEditQsoData] = useState({ date: "", frequency: "", mode: "", name: "", comment: "" });
+  const [editQsoData, setEditQsoData] = useState({ date: "", time_utc: "", frequency: "", mode: "", name: "", comment: "" });
 
   const startEditName = () => { setNameValue(data?.name || ""); setEditingName(true); };
   const saveContactName = async () => {
@@ -517,7 +549,7 @@ function ContactDetail({ callsign, onBack }) {
 
   const startEditQso = (qso) => {
     setEditingQsoId(qso.id);
-    setEditQsoData({ date: qso.date, frequency: qso.frequency.toString(), mode: qso.mode || "", name: qso.name || "", comment: qso.comment || "" });
+    setEditQsoData({ date: qso.date, time_utc: qso.time_utc || "", frequency: qso.frequency.toString(), mode: qso.mode || "", name: qso.name || "", comment: qso.comment || "" });
   };
 
   const saveEditQso = async (id) => {
@@ -613,10 +645,15 @@ function ContactDetail({ callsign, onBack }) {
                   {editingQsoId === qso.id ? (
                     /* Inline edit form */
                     <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-3 gap-3">
                         <div>
                           <span className="text-zinc-500 text-xs font-mono">Date</span>
                           <Input type="date" value={editQsoData.date} onChange={(e) => setEditQsoData({ ...editQsoData, date: e.target.value })}
+                            className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm h-8 mt-1" />
+                        </div>
+                        <div>
+                          <span className="text-zinc-500 text-xs font-mono">Heure UTC</span>
+                          <Input type="time" value={editQsoData.time_utc} onChange={(e) => setEditQsoData({ ...editQsoData, time_utc: e.target.value })}
                             className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm h-8 mt-1" />
                         </div>
                         <div>
@@ -657,7 +694,7 @@ function ContactDetail({ callsign, onBack }) {
                         <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 font-mono text-sm">
                           <div>
                             <span className="text-zinc-500 text-xs">Date</span>
-                            <div className="text-zinc-200">{formatDate(qso.date)}</div>
+                            <div className="text-zinc-200">{formatDate(qso.date)}{qso.time_utc ? ` ${qso.time_utc} UTC` : ""}</div>
                           </div>
                           <div>
                             <span className="text-zinc-500 text-xs">Fréquence</span>
@@ -701,6 +738,88 @@ function ContactDetail({ callsign, onBack }) {
     </div>
   );
 }
+
+// === Profile Page ===
+function ProfilePage({ onBack }) {
+  const { user } = useAuth();
+  const [currentPwd, setCurrentPwd] = useState("");
+  const [newPwd, setNewPwd] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [emailPwd, setEmailPwd] = useState("");
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
+
+  const handleChangePwd = async (e) => {
+    e.preventDefault();
+    if (!currentPwd || !newPwd) { toast.error("Remplissez tous les champs"); return; }
+    if (newPwd.length < 6) { toast.error("Min. 6 caractères"); return; }
+    if (newPwd !== confirmPwd) { toast.error("Les mots de passe ne correspondent pas"); return; }
+    setPwdLoading(true);
+    try {
+      await axios.put(`${API}/auth/change-password`, { current_password: currentPwd, new_password: newPwd });
+      toast.success("Mot de passe modifié");
+      setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
+    } catch (err) { toast.error(formatApiError(err.response?.data?.detail)); }
+    finally { setPwdLoading(false); }
+  };
+
+  const handleChangeEmail = async (e) => {
+    e.preventDefault();
+    if (!newEmail || !emailPwd) { toast.error("Remplissez tous les champs"); return; }
+    setEmailLoading(true);
+    try {
+      const { data } = await axios.put(`${API}/auth/change-email`, { new_email: newEmail, password: emailPwd });
+      toast.success(`Email modifié : ${data.email}`);
+      setNewEmail(""); setEmailPwd("");
+    } catch (err) { toast.error(formatApiError(err.response?.data?.detail)); }
+    finally { setEmailLoading(false); }
+  };
+
+  return (
+    <div data-testid="profile-page">
+      <button onClick={onBack} className="flex items-center gap-2 text-zinc-400 hover:text-amber-500 transition-colors font-mono text-sm mb-6" data-testid="profile-back-btn">
+        <ArrowLeft size={18} /> Retour
+      </button>
+
+      <h2 className="font-display text-2xl font-bold tracking-tight uppercase text-zinc-100 mb-2">Mon profil</h2>
+      <p className="text-sm text-zinc-500 font-mono mb-6">{user?.callsign} — {user?.email}</p>
+
+      {/* Change password */}
+      <div className="bg-[#121212] border border-zinc-800/80 p-5 mb-4">
+        <h3 className="font-display text-sm font-semibold tracking-tight uppercase text-zinc-400 mb-4">Changer le mot de passe</h3>
+        <form onSubmit={handleChangePwd} className="space-y-3">
+          <Input type="password" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)} placeholder="Mot de passe actuel" data-testid="current-password-input"
+            className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+          <Input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder="Nouveau mot de passe" data-testid="new-password-profile-input"
+            className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+          <Input type="password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} placeholder="Confirmer le nouveau" data-testid="confirm-password-profile-input"
+            className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+          <Button type="submit" disabled={pwdLoading} data-testid="change-password-btn"
+            className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none h-10 text-xs">
+            {pwdLoading ? "..." : "Modifier le mot de passe"}
+          </Button>
+        </form>
+      </div>
+
+      {/* Change email */}
+      <div className="bg-[#121212] border border-zinc-800/80 p-5">
+        <h3 className="font-display text-sm font-semibold tracking-tight uppercase text-zinc-400 mb-4">Changer l'email</h3>
+        <form onSubmit={handleChangeEmail} className="space-y-3">
+          <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Nouvel email" data-testid="new-email-input"
+            className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+          <Input type="password" value={emailPwd} onChange={(e) => setEmailPwd(e.target.value)} placeholder="Mot de passe (confirmation)" data-testid="email-password-input"
+            className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+          <Button type="submit" disabled={emailLoading} data-testid="change-email-btn"
+            className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none h-10 text-xs">
+            {emailLoading ? "..." : "Modifier l'email"}
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 
 // === Admin Panel ===
 function AdminPanel({ onBack }) {
@@ -892,17 +1011,20 @@ function Dashboard() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addCallsign, setAddCallsign] = useState("");
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [bandFilter, setBandFilter] = useState("");
 
   const fetchGrouped = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       if (searchTerm) params.append("search", searchTerm);
+      if (bandFilter) params.append("band", bandFilter);
       const res = await axios.get(`${API}/qso/grouped?${params.toString()}`);
       setGrouped(res.data);
     } catch (error) {
       if (error.response?.status !== 401) toast.error("Erreur chargement");
     } finally { setLoading(false); }
-  }, [searchTerm]);
+  }, [searchTerm, bandFilter]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -946,6 +1068,10 @@ function Dashboard() {
               Connecté en tant que <span className="font-bold">{user?.callsign}</span>
             </div>
             <div className="flex items-center gap-2">
+              <button data-testid="profile-button" onClick={() => { setShowProfile(true); setShowAdmin(false); setSelectedCallsign(null); }}
+                className="p-1.5 text-zinc-400 hover:text-amber-500 border border-zinc-700 hover:border-amber-500/30 transition-all duration-200">
+                <Gear size={16} />
+              </button>
               {user?.role === "admin" && (
                 <button data-testid="admin-button" onClick={() => { setShowAdmin(true); setSelectedCallsign(null); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-amber-500 border border-amber-500/30 hover:bg-amber-500/10 transition-all duration-200">
@@ -961,7 +1087,9 @@ function Dashboard() {
         </header>
 
         {/* Content routing */}
-        {showAdmin && user?.role === "admin" ? (
+        {showProfile ? (
+          <ProfilePage onBack={() => setShowProfile(false)} />
+        ) : showAdmin && user?.role === "admin" ? (
           <AdminPanel onBack={() => setShowAdmin(false)} />
         ) : selectedCallsign ? (
           <ContactDetail callsign={selectedCallsign} onBack={() => { setSelectedCallsign(null); fetchGrouped(); fetchStats(); }} />
@@ -995,6 +1123,20 @@ function Dashboard() {
                   <Plus size={16} /> Ajouter l'indicatif {searchUpper}
                 </button>
               )}
+
+              {/* Band filter */}
+              <div className="mt-3 flex flex-wrap gap-1.5" data-testid="band-filter">
+                <button onClick={() => setBandFilter("")}
+                  className={`px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider border transition-all ${!bandFilter ? "bg-amber-500 text-black border-amber-500 font-bold" : "bg-[#09090b] text-zinc-400 border-zinc-700 hover:border-zinc-500"}`}>
+                  Toutes
+                </button>
+                {BANDS.map((b) => (
+                  <button key={b} onClick={() => setBandFilter(bandFilter === b ? "" : b)}
+                    className={`px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider border transition-all ${bandFilter === b ? "bg-amber-500 text-black border-amber-500 font-bold" : "bg-[#09090b] text-zinc-400 border-zinc-700 hover:border-zinc-500"}`}>
+                    {b}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Callsign list */}
