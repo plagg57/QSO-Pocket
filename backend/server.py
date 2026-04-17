@@ -14,6 +14,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt
+import secrets
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -205,6 +206,72 @@ async def refresh_token(request: Request, response: Response):
         raise HTTPException(status_code=401, detail="Refresh token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+# === Password Reset ===
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str = Field(..., min_length=6)
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(data: ForgotPasswordRequest):
+    identifier = data.email.strip()
+    if "@" in identifier:
+        user = await db.users.find_one({"email": identifier.lower()})
+    else:
+        user = await db.users.find_one({"callsign": identifier.upper()})
+
+    if not user:
+        # Don't reveal if user exists
+        return {"message": "Si ce compte existe, un lien de réinitialisation a été généré.", "reset_link": None}
+
+    token = secrets.token_urlsafe(32)
+    await db.password_reset_tokens.insert_one({
+        "token": token,
+        "user_id": user["id"],
+        "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
+        "used": False
+    })
+
+    frontend_url = os.environ.get("REACT_APP_FRONTEND_URL", "")
+    if not frontend_url:
+        cors = os.environ.get("CORS_ORIGINS", "")
+        frontend_url = cors.split(",")[0].strip() if cors and cors != "*" else ""
+
+    reset_link = f"{frontend_url}/reset-password?token={token}" if frontend_url else f"/reset-password?token={token}"
+    logger.info(f"Password reset link for {user['email']}: {reset_link}")
+
+    # Simulation mode: return the link directly
+    return {
+        "message": "Lien de réinitialisation généré",
+        "reset_link": reset_link,
+        "callsign": user.get("callsign", "")
+    }
+
+@api_router.post("/auth/reset-password")
+async def reset_password(data: ResetPasswordRequest):
+    token_doc = await db.password_reset_tokens.find_one({"token": data.token, "used": False}, {"_id": 0})
+    if not token_doc:
+        raise HTTPException(status_code=400, detail="Lien invalide ou déjà utilisé")
+
+    expires_at = token_doc["expires_at"]
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at)
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Lien expiré. Veuillez en demander un nouveau.")
+
+    user = await db.users.find_one({"id": token_doc["user_id"]})
+    if not user:
+        raise HTTPException(status_code=400, detail="Utilisateur non trouvé")
+
+    await db.users.update_one({"id": token_doc["user_id"]}, {"$set": {"password_hash": hash_password(data.password)}})
+    await db.password_reset_tokens.update_one({"token": data.token}, {"$set": {"used": True}})
+
+    return {"message": "Mot de passe réinitialisé avec succès"}
 
 # === QSO Models ===
 class QSOCreate(BaseModel):
@@ -520,6 +587,8 @@ async def startup():
     await db.users.create_index("callsign", unique=True)
     await db.login_attempts.create_index("identifier")
     await db.qsos.create_index("owner_id")
+    await db.password_reset_tokens.create_index("token")
+    await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
     
     # Seed admin
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@example.com")

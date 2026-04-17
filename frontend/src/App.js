@@ -88,7 +88,7 @@ function AuthProvider({ children }) {
 }
 
 // === Login Page ===
-function LoginPage({ onSwitch }) {
+function LoginPage({ onSwitch, onForgot }) {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -127,8 +127,11 @@ function LoginPage({ onSwitch }) {
               {loading ? "Connexion..." : "Se connecter"}
             </Button>
           </form>
-          <div className="mt-6 text-center">
-            <button data-testid="switch-to-register" onClick={onSwitch} className="text-sm text-zinc-500 hover:text-amber-500 font-mono transition-colors">
+          <div className="mt-6 text-center space-y-2">
+            <button data-testid="switch-to-forgot" onClick={onForgot} className="text-sm text-zinc-500 hover:text-amber-500 font-mono transition-colors block w-full">
+              Mot de passe oublié ?
+            </button>
+            <button data-testid="switch-to-register" onClick={onSwitch} className="text-sm text-zinc-500 hover:text-amber-500 font-mono transition-colors block w-full">
               Pas de compte ? <span className="text-amber-500 underline">S'inscrire</span>
             </button>
           </div>
@@ -190,6 +193,155 @@ function RegisterPage({ onSwitch }) {
               Déjà un compte ? <span className="text-amber-500 underline">Se connecter</span>
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// === Forgot Password Page ===
+function ForgotPasswordPage({ onBack }) {
+  const [identifier, setIdentifier] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [resetLink, setResetLink] = useState(null);
+  const [resetCallsign, setResetCallsign] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!identifier) { toast.error("Veuillez entrer votre email ou indicatif"); return; }
+    setLoading(true);
+    try {
+      const { data } = await axios.post(`${API}/auth/forgot-password`, { email: identifier });
+      if (data.reset_link) {
+        setResetLink(data.reset_link);
+        setResetCallsign(data.callsign || "");
+        toast.success("Lien de réinitialisation généré");
+      } else {
+        toast.info("Si ce compte existe, un lien a été généré.");
+      }
+    } catch (err) { toast.error(formatApiError(err.response?.data?.detail)); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#09090b] flex items-center justify-center p-4 relative">
+      <div className="radio-bg"></div>
+      <div className="relative z-10 w-full max-w-md">
+        <div className="text-center mb-6">
+          <img src={LOGO_URL} alt="QSO Pocket" className="h-24 sm:h-28 mx-auto" />
+        </div>
+        <div className="bg-[#121212] border border-zinc-800/80 p-6 sm:p-8" data-testid="forgot-password-form">
+          <h2 className="font-display text-2xl font-semibold tracking-tight uppercase text-zinc-100 mb-2 flex items-center gap-2">
+            <Lock size={24} className="text-amber-500" /> Mot de passe oublié
+          </h2>
+          <p className="text-xs text-zinc-500 font-mono mb-6">Entrez votre email ou indicatif pour recevoir un lien de réinitialisation.</p>
+
+          {resetLink ? (
+            <div className="space-y-4">
+              <div className="bg-[#09090b] border border-amber-500/30 p-4">
+                <div className="text-xs font-bold uppercase tracking-[0.2em] text-amber-500 mb-2">Lien de réinitialisation{resetCallsign ? ` pour ${resetCallsign}` : ""}</div>
+                <p className="text-xs text-zinc-400 font-mono mb-3">En mode simulation, copiez ce lien :</p>
+                <div className="bg-[#121212] border border-zinc-700 p-3 break-all">
+                  <a href={resetLink} className="text-xs text-amber-500 font-mono underline hover:text-amber-400" data-testid="reset-link">{resetLink}</a>
+                </div>
+              </div>
+              <Button onClick={() => { setResetLink(null); setIdentifier(""); }}
+                className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-mono uppercase tracking-wider rounded-none h-10 text-xs">
+                Nouveau lien
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Envelope size={14} /> Email ou indicatif</Label>
+                <Input data-testid="forgot-email-input" type="text" value={identifier} onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="votre@email.com ou indicatif" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+              </div>
+              <Button data-testid="forgot-submit-button" type="submit" disabled={loading}
+                className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none h-12 transition-all duration-200 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]">
+                {loading ? "Envoi..." : "Réinitialiser le mot de passe"}
+              </Button>
+            </form>
+          )}
+
+          <div className="mt-6 text-center">
+            <button data-testid="back-to-login-from-forgot" onClick={onBack} className="text-sm text-zinc-500 hover:text-amber-500 font-mono transition-colors">
+              Retour à la <span className="text-amber-500 underline">connexion</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// === Reset Password Page ===
+function ResetPasswordPage({ token, onDone }) {
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!password || !confirmPassword) { toast.error("Veuillez remplir les deux champs"); return; }
+    if (password.length < 6) { toast.error("Le mot de passe doit faire au moins 6 caractères"); return; }
+    if (password !== confirmPassword) { toast.error("Les mots de passe ne correspondent pas"); return; }
+    setLoading(true);
+    try {
+      await axios.post(`${API}/auth/reset-password`, { token, password });
+      toast.success("Mot de passe modifié avec succès");
+      setSuccess(true);
+    } catch (err) { toast.error(formatApiError(err.response?.data?.detail)); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#09090b] flex items-center justify-center p-4 relative">
+      <div className="radio-bg"></div>
+      <div className="relative z-10 w-full max-w-md">
+        <div className="text-center mb-6">
+          <img src={LOGO_URL} alt="QSO Pocket" className="h-24 sm:h-28 mx-auto" />
+        </div>
+        <div className="bg-[#121212] border border-zinc-800/80 p-6 sm:p-8" data-testid="reset-password-form">
+          {success ? (
+            <div className="text-center space-y-4">
+              <div className="text-amber-500 text-4xl font-mono mb-2"><Check size={48} className="mx-auto" /></div>
+              <h2 className="font-display text-xl font-semibold tracking-tight uppercase text-zinc-100">Mot de passe modifié</h2>
+              <p className="text-sm text-zinc-400 font-mono">Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.</p>
+              <Button onClick={onDone} data-testid="back-to-login-after-reset"
+                className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none h-12">
+                Se connecter
+              </Button>
+            </div>
+          ) : (
+            <>
+              <h2 className="font-display text-2xl font-semibold tracking-tight uppercase text-zinc-100 mb-6 flex items-center gap-2">
+                <Lock size={24} className="text-amber-500" /> Nouveau mot de passe
+              </h2>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Lock size={14} /> Nouveau mot de passe</Label>
+                  <Input data-testid="new-password-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Min. 6 caractères" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Lock size={14} /> Confirmer</Label>
+                  <Input data-testid="confirm-password-input" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Retapez le mot de passe" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+                </div>
+                <Button data-testid="reset-submit-button" type="submit" disabled={loading}
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none h-12 transition-all duration-200 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]">
+                  {loading ? "Modification..." : "Modifier le mot de passe"}
+                </Button>
+              </form>
+              <div className="mt-6 text-center">
+                <button onClick={onDone} className="text-sm text-zinc-500 hover:text-amber-500 font-mono transition-colors">
+                  Retour à la <span className="text-amber-500 underline">connexion</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -937,6 +1089,14 @@ function AppContent() {
   const { user, checking } = useAuth();
   const [authMode, setAuthMode] = useState("login");
 
+  // Check for reset token in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("token") && window.location.pathname === "/reset-password") {
+      setAuthMode("reset");
+    }
+  }, []);
+
   if (checking) {
     return (
       <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
@@ -950,9 +1110,18 @@ function AppContent() {
   }
 
   if (!user) {
-    return authMode === "login"
-      ? <LoginPage onSwitch={() => setAuthMode("register")} />
-      : <RegisterPage onSwitch={() => setAuthMode("login")} />;
+    if (authMode === "forgot") {
+      return <ForgotPasswordPage onBack={() => setAuthMode("login")} />;
+    }
+    if (authMode === "reset") {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get("token") || "";
+      return <ResetPasswordPage token={token} onDone={() => { window.history.replaceState({}, "", "/"); setAuthMode("login"); }} />;
+    }
+    if (authMode === "register") {
+      return <RegisterPage onSwitch={() => setAuthMode("login")} />;
+    }
+    return <LoginPage onSwitch={() => setAuthMode("register")} onForgot={() => setAuthMode("forgot")} />;
   }
 
   return <Dashboard />;
