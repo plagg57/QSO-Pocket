@@ -127,8 +127,8 @@ function LoginPage({ onSwitch, onForgot }) {
               {loading ? "Connexion..." : "Se connecter"}
             </Button>
           </form>
-          <div className="mt-6 text-center space-y-2">
-            <button data-testid="switch-to-forgot" onClick={onForgot} className="text-sm text-zinc-500 hover:text-amber-500 font-mono transition-colors block w-full">
+          <div className="mt-6 text-center space-y-3">
+            <button data-testid="switch-to-forgot" onClick={onForgot} className="text-sm text-amber-500 hover:text-amber-400 font-mono transition-colors block w-full underline underline-offset-4">
               Mot de passe oublié ?
             </button>
             <button data-testid="switch-to-register" onClick={onSwitch} className="text-sm text-zinc-500 hover:text-amber-500 font-mono transition-colors block w-full">
