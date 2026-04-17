@@ -442,6 +442,56 @@ async def delete_qso(qso_id: str, request: Request):
 async def root():
     return {"message": "QSO Logbook API"}
 
+# === Admin Endpoints ===
+async def require_admin(request: Request) -> dict:
+    user = await get_current_user(request)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Accès réservé à l'administrateur")
+    return user
+
+@api_router.get("/admin/stats")
+async def admin_stats(request: Request):
+    await require_admin(request)
+    total_users = await db.users.count_documents({})
+    total_qsos = await db.qsos.count_documents({})
+    return {"total_users": total_users, "total_qsos": total_qsos}
+
+@api_router.get("/admin/users")
+async def admin_list_users(request: Request, search: Optional[str] = None):
+    await require_admin(request)
+    query = {}
+    if search:
+        query["$or"] = [
+            {"callsign": {"$regex": search, "$options": "i"}},
+            {"email": {"$regex": search, "$options": "i"}}
+        ]
+    users = await db.users.find(query, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(1000)
+    # Add QSO count per user
+    for u in users:
+        u["qso_count"] = await db.qsos.count_documents({"owner_id": u["id"]})
+    return users
+
+@api_router.get("/admin/users/{user_id}/qsos")
+async def admin_user_qsos(user_id: str, request: Request):
+    await require_admin(request)
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    qsos = await db.qsos.find({"owner_id": user_id}, {"_id": 0}).sort("date", -1).to_list(1000)
+    return {"user": user, "qsos": qsos}
+
+@api_router.delete("/admin/users/{user_id}")
+async def admin_delete_user(user_id: str, request: Request):
+    admin = await require_admin(request)
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    if user.get("role") == "admin":
+        raise HTTPException(status_code=400, detail="Impossible de supprimer un administrateur")
+    await db.qsos.delete_many({"owner_id": user_id})
+    await db.users.delete_one({"id": user_id})
+    return {"message": f"Utilisateur {user.get('callsign')} supprimé"}
+
 # Include router
 app.include_router(api_router)
 
