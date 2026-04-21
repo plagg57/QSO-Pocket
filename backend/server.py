@@ -15,11 +15,16 @@ from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt
 import secrets
+print("SERVER.PY CHARGE OK")
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+print("MONGO_URL present:", "MONGO_URL" in os.environ)
+print("DB_NAME present:", "DB_NAME" in os.environ)
+print("JWT_SECRET present:", "JWT_SECRET" in os.environ)
+print("PORT =", os.environ.get("PORT"))
 
 JWT_ALGORITHM = "HS256"
 
