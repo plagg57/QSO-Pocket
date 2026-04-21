@@ -1050,16 +1050,15 @@ function Dashboard() {
   };
 
   // Vérifier si la recherche correspond exactement à un indicatif existant
-  const searchUpper = searchTerm.toUpperCase().trim();
   console.log("grouped =", grouped);
- const searchUpper = (searchTerm || "").toUpperCase().trim();
+
+const searchUpper = (searchTerm || "").toUpperCase().trim();
 
 const exactMatch = Array.isArray(grouped)
   ? grouped.find(g => g.callsign === searchUpper)
   : null;
 
-const showAddButton = searchTerm?.length >= 2 && !exactMatch;
-  const showAddButton = searchTerm.length >= 2 && !exactMatch;
+const showAddButton = (searchTerm || "").length >= 2 && !exactMatch;
 
   return (
     <div className="min-h-screen bg-[#09090b] relative">
