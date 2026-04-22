@@ -639,7 +639,7 @@ all_origins = [o.strip() for o in cors_origins if o.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=all_origins if "*" not in all_origins else ["*"],
+    allow_origins=["https://qso-pocket.vercel.app"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
