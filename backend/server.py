@@ -628,14 +628,6 @@ async def admin_delete_user(user_id: str, request: Request):
     await db.users.delete_one({"id": user_id})
     return {"message": f"Utilisateur {user.get('callsign')} supprimé"}
 
-# Include router
-app.include_router(api_router)
-
-# CORS - must support credentials
-frontend_url = os.environ.get('REACT_APP_FRONTEND_URL', '')
-cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
-all_origins = [o.strip() for o in cors_origins if o.strip()]
-
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -643,6 +635,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include router
+app.include_router(api_router)
+
+# CORS - must support credentials
+frontend_url = os.environ.get('REACT_APP_FRONTEND_URL', '')
+cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
+all_origins = [o.strip() for o in cors_origins if o.strip()]
 
 # Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
