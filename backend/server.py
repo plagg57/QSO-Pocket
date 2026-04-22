@@ -399,7 +399,7 @@ async def get_qsos_grouped(request: Request, search: Optional[str] = None, band:
             "total_contacts": {"$sum": 1},
             "last_created_at": {"$last": "$created_at"}
         }},
-        {"$sort": {"last_created_at": -1}},
+        {"$sort": {"first_contact": -1}},
         {"$project": {"_id": 0, "callsign": 1, "name": 1, "first_contact": 1, "last_contact": 1, "total_contacts": 1}}
     ]
     
