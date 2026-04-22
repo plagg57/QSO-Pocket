@@ -518,7 +518,7 @@ function ContactDetail({ callsign, onBack }) {
     try {
       await axios.delete(`${API}/qso/${id}`);
       toast.success("Contact supprimé");
-      fetchHistory();
+      onBack();
     } catch { toast.error("Erreur suppression"); }
   };
 
