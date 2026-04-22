@@ -564,7 +564,8 @@ function ContactDetail({ callsign, onBack }) {
   const formatDate = (d) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
   // Sort history: oldest first
-  const sortedHistory = data?.history ? [...data.history].sort((a, b) => a.date.localeCompare(b.date)) : [];
+  const sortedHistory = data?.history ? [...data.history].sort((a, b) => b.date.localeCompare(a.date) || (b.time_utc || "").localeCompare(a.time_utc || "")) : [];
+
 
   return (
     <div data-testid="contact-detail-panel">
