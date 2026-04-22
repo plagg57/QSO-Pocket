@@ -1019,8 +1019,8 @@ function Dashboard() {
       const params = new URLSearchParams();
       if (searchTerm) params.append("search", searchTerm);
       if (bandFilter) params.append("band", bandFilter);
-      const res = await axios.get(`${API}/api/qso/grouped?${params.toString()}`);
-      setGrouped(res.data);
+      const res = await axios.get(`${API}/qso/grouped?${params.toString()}`);
+     setGrouped(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       if (error.response?.status !== 401) toast.error("Erreur chargement");
     } finally { setLoading(false); }
