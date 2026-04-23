@@ -518,7 +518,14 @@ function ContactDetail({ callsign, onBack }) {
     try {
       await axios.delete(`${API}/qso/${id}`);
       toast.success("Contact supprimé");
-      fetchHistory();
+      // Check if there are remaining QSOs
+      try {
+        const res = await axios.get(`${API}/qso/history/${encodeURIComponent(callsign)}`);
+        setData(res.data);
+      } catch {
+        // No more QSOs for this callsign → back to list
+        onBack();
+      }
     } catch { toast.error("Erreur suppression"); }
   };
 
@@ -1340,6 +1347,11 @@ function AppContent() {
       setAuthMode("reset");
     }
   }, []);
+
+  // Always show login page after logout
+  useEffect(() => {
+    if (user === false) setAuthMode("login");
+  }, [user]);
 
   if (checking) {
     return (
