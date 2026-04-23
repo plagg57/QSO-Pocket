@@ -518,7 +518,14 @@ function ContactDetail({ callsign, onBack }) {
     try {
       await axios.delete(`${API}/qso/${id}`);
       toast.success("Contact supprimé");
-      onBack();
+      // Check if there are remaining QSOs
+      try {
+        const res = await axios.get(`${API}/qso/history/${encodeURIComponent(callsign)}`);
+        setData(res.data);
+      } catch {
+        // No more QSOs for this callsign → back to list
+        onBack();
+      }
     } catch { toast.error("Erreur suppression"); }
   };
 
@@ -565,7 +572,6 @@ function ContactDetail({ callsign, onBack }) {
 
   // Sort history: oldest first
   const sortedHistory = data?.history ? [...data.history].sort((a, b) => b.date.localeCompare(a.date) || (b.time_utc || "").localeCompare(a.time_utc || "")) : [];
-
 
   return (
     <div data-testid="contact-detail-panel">
@@ -829,41 +835,10 @@ function AdminPanel({ onBack }) {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
-  const [userQsos, setUserQsos] = useState([]);
-  const [loadingQsos, setLoadingQsos] = useState(false);
-
-  const [selectedAdminCallsign, setSelectedAdminCallsign] = useState(null);
-  const [adminContactHistory, setAdminContactHistory] = useState(null);
-
-  const groupedContacts = Object.values(
-    userQsos.reduce((acc, qso) => {
-      if (!acc[qso.callsign]) {
-        acc[qso.callsign] = {
-          callsign: qso.callsign,
-          name: qso.name || "",
-          total_contacts: 0,
-          first_contact: qso.date,
-          last_contact: qso.date,
-        };
-      }
-
-      acc[qso.callsign].total_contacts += 1;
-
-      if (qso.date < acc[qso.callsign].first_contact) {
-        acc[qso.callsign].first_contact = qso.date;
-      }
-
-      if (qso.date > acc[qso.callsign].last_contact) {
-        acc[qso.callsign].last_contact = qso.date;
-      }
-
-      if (!acc[qso.callsign].name && qso.name) {
-        acc[qso.callsign].name = qso.name;
-      }
-
-      return acc;
-    }, {})
-  ).sort((a, b) => b.last_contact.localeCompare(a.last_contact));
+  const [groupedQsos, setGroupedQsos] = useState([]);
+  const [selectedCallsign, setSelectedCallsign] = useState(null);
+  const [detailData, setDetailData] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -871,11 +846,8 @@ function AdminPanel({ onBack }) {
       if (searchTerm) params.append("search", searchTerm);
       const res = await axios.get(`${API}/admin/users?${params.toString()}`);
       setUsers(res.data);
-    } catch {
-      toast.error("Erreur chargement utilisateurs");
-    } finally {
-      setLoading(false);
-    }
+    } catch { toast.error("Erreur chargement utilisateurs"); }
+    finally { setLoading(false); }
   }, [searchTerm]);
 
   const fetchStats = useCallback(async () => {
@@ -885,161 +857,162 @@ function AdminPanel({ onBack }) {
     } catch {}
   }, []);
 
-  useEffect(() => {
-    fetchUsers();
-    fetchStats();
-  }, [fetchUsers, fetchStats]);
+  useEffect(() => { fetchUsers(); fetchStats(); }, [fetchUsers, fetchStats]);
 
-  const viewUserQsos = async (u) => {
+  const viewUser = async (u) => {
     setSelectedUser(u);
-    setSelectedAdminCallsign(null);
-    setAdminContactHistory(null);
-    setLoadingQsos(true);
-
+    setSelectedCallsign(null);
+    setDetailData(null);
     try {
-      const res = await axios.get(`${API}/admin/users/${u.id}/qsos`);
-      setUserQsos(res.data.qsos || []);
-    } catch {
-      toast.error("Erreur chargement QSOs");
-    } finally {
-      setLoadingQsos(false);
-    }
+      const res = await axios.get(`${API}/admin/users/${u.id}/grouped`);
+      setGroupedQsos(res.data);
+    } catch { toast.error("Erreur chargement QSOs"); }
   };
 
-  const viewAdminContactHistory = async (callsign) => {
-    if (!selectedUser) return;
-
-    setLoadingQsos(true);
+  const viewCallsignDetail = async (cs) => {
+    setSelectedCallsign(cs);
+    setLoadingDetail(true);
     try {
-      const res = await axios.get(
-        `${API}/admin/users/${selectedUser.id}/history/${encodeURIComponent(callsign)}`
-      );
-      setSelectedAdminCallsign(callsign);
-      setAdminContactHistory(res.data);
-    } catch {
-      toast.error("Erreur chargement détail du contact");
-    } finally {
-      setLoadingQsos(false);
-    }
+      const res = await axios.get(`${API}/admin/users/${selectedUser.id}/history/${encodeURIComponent(cs)}`);
+      setDetailData(res.data);
+    } catch { toast.error("Erreur chargement historique"); }
+    finally { setLoadingDetail(false); }
   };
 
-  const backToAdminGrouped = () => {
-    setSelectedAdminCallsign(null);
-    setAdminContactHistory(null);
-  };
-
-  const deleteAdminQso = async (qsoId) => {
+  const deleteQso = async (qsoId) => {
     if (!window.confirm("Supprimer ce QSO ?")) return;
-
     try {
-      await axios.delete(`${API}/qso/${qsoId}`);
+      await axios.delete(`${API}/admin/qso/${qsoId}`);
       toast.success("QSO supprimé");
-
-      if (selectedUser) {
-        const res = await axios.get(`${API}/admin/users/${selectedUser.id}/qsos`);
-        setUserQsos(res.data.qsos || []);
-      }
-
-      if (selectedAdminCallsign && selectedUser) {
-        const res = await axios.get(
-          `${API}/admin/users/${selectedUser.id}/history/${encodeURIComponent(selectedAdminCallsign)}`
-        );
-        setAdminContactHistory(res.data);
-      }
-    } catch {
-      toast.error("Erreur suppression");
-    }
+      viewCallsignDetail(selectedCallsign);
+      fetchStats();
+    } catch { toast.error("Erreur suppression"); }
   };
 
   const deleteUser = async (u) => {
     if (!window.confirm(`Supprimer ${u.callsign} (${u.email}) et tous ses QSOs ?`)) return;
-
     try {
       await axios.delete(`${API}/admin/users/${u.id}`);
       toast.success(`${u.callsign} supprimé`);
       setSelectedUser(null);
-      setSelectedAdminCallsign(null);
-      setAdminContactHistory(null);
       fetchUsers();
       fetchStats();
-    } catch (err) {
-      toast.error(formatApiError(err.response?.data?.detail));
-    }
+    } catch (err) { toast.error(formatApiError(err.response?.data?.detail)); }
   };
 
   const formatDate = (d) => {
     if (!d) return "—";
-    return new Date(d).toLocaleDateString("fr-FR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
+    return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
   };
+
+  // Detail view for a callsign
+  const sortedHistory = detailData?.history ? [...detailData.history].sort((a, b) => b.date.localeCompare(a.date) || (b.time_utc || "").localeCompare(a.time_utc || "")) : [];
 
   return (
     <div data-testid="admin-panel">
-      <button
-        onClick={onBack}
-        className="flex items-center gap-2 text-zinc-400 hover:text-amber-500 transition-colors font-mono text-sm mb-6"
-        data-testid="admin-back-btn"
-      >
+      <button onClick={onBack} className="flex items-center gap-2 text-zinc-400 hover:text-amber-500 transition-colors font-mono text-sm mb-6" data-testid="admin-back-btn">
         <ArrowLeft size={18} /> Retour
       </button>
 
-      <h2 className="font-display text-2xl font-bold tracking-tight uppercase text-zinc-100 mb-6">
-        Administration
-      </h2>
+      <h2 className="font-display text-2xl font-bold tracking-tight uppercase text-zinc-100 mb-6">Administration</h2>
 
+      {/* Stats */}
       <div className="grid grid-cols-2 gap-3 mb-6">
         <div className="bg-[#121212] border border-zinc-800/80 p-4">
-          <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1">
-            Utilisateurs
-          </div>
-          <div className="text-3xl font-bold text-amber-500 font-mono" data-testid="admin-total-users">
-            {stats.total_users}
-          </div>
+          <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1">Utilisateurs</div>
+          <div className="text-3xl font-bold text-amber-500 font-mono" data-testid="admin-total-users">{stats.total_users}</div>
         </div>
         <div className="bg-[#121212] border border-zinc-800/80 p-4">
-          <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1">
-            Total QSOs
-          </div>
-          <div className="text-3xl font-bold text-amber-500 font-mono" data-testid="admin-total-qsos">
-            {stats.total_qsos}
-          </div>
+          <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1">Total QSOs</div>
+          <div className="text-3xl font-bold text-amber-500 font-mono" data-testid="admin-total-qsos">{stats.total_qsos}</div>
         </div>
       </div>
 
-      {selectedUser ? (
+      {selectedUser && selectedCallsign && detailData ? (
+        /* === Callsign detail for a user === */
+        <div data-testid="admin-callsign-detail">
+          <button onClick={() => { setSelectedCallsign(null); setDetailData(null); viewUser(selectedUser); }}
+            className="flex items-center gap-2 text-zinc-400 hover:text-amber-500 transition-colors font-mono text-sm mb-4">
+            <ArrowLeft size={16} /> QSOs de {selectedUser.callsign}
+          </button>
+
+          <div className="bg-[#121212] border border-zinc-800/80 p-5 mb-4">
+            <div className="flex items-center gap-3 mb-2">
+              {getFlagUrl(detailData.callsign, 32) && <img src={getFlagUrl(detailData.callsign, 32)} alt="" className="h-5 shadow-sm" />}
+              <div className="text-2xl font-bold text-amber-500 font-mono">{detailData.callsign}</div>
+            </div>
+            {getCountryName(detailData.callsign) && <div className="text-xs text-zinc-500 font-mono uppercase tracking-wider mb-1">{getCountryName(detailData.callsign)}</div>}
+            <div className="text-base text-zinc-300 font-mono mb-4">{detailData.name || "—"}</div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-[#09090b] border border-zinc-800 p-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500 mb-1">Premier</div>
+                <div className="text-xs text-zinc-200 font-mono">{formatDate(detailData.first_contact)}</div>
+              </div>
+              <div className="bg-[#09090b] border border-zinc-800 p-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500 mb-1">Dernier</div>
+                <div className="text-xs text-zinc-200 font-mono">{formatDate(detailData.last_contact)}</div>
+              </div>
+              <div className="bg-[#09090b] border border-zinc-800 p-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500 mb-1">Total</div>
+                <div className="text-xl font-bold text-amber-500 font-mono">{detailData.total_contacts}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-[#121212] border border-zinc-800/80">
+            <div className="px-5 py-3 border-b border-zinc-800">
+              <h3 className="font-display text-sm font-semibold tracking-tight uppercase text-zinc-400">Historique</h3>
+            </div>
+            <div className="divide-y divide-zinc-800/50">
+              {sortedHistory.map((qso) => (
+                <div key={qso.id} className="p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors" data-testid="admin-history-entry">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1 font-mono text-sm">
+                      <div>
+                        <span className="text-zinc-500 text-xs">Date</span>
+                        <div className="text-zinc-200">{formatDate(qso.date)}{qso.time_utc ? ` ${qso.time_utc}` : ""}</div>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 text-xs">Fréquence</span>
+                        <div className="text-zinc-200">{qso.frequency?.toFixed(3)} MHz{getBand(qso.frequency) ? ` (${getBand(qso.frequency)})` : ""}</div>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 text-xs">Mode</span>
+                        <div className="text-zinc-200">{qso.mode || "—"}</div>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 text-xs">Nom</span>
+                        <div className="text-zinc-300">{qso.name || "—"}</div>
+                      </div>
+                    </div>
+                    <button onClick={() => deleteQso(qso.id)} className="ml-2 p-1.5 text-zinc-600 hover:text-red-500 transition-colors" data-testid="admin-delete-qso-btn">
+                      <Trash size={14} />
+                    </button>
+                  </div>
+                  {qso.comment && <div className="mt-2 text-xs text-zinc-400 font-mono italic border-l-2 border-zinc-700 pl-3">{qso.comment}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+      ) : selectedUser ? (
+        /* === User's grouped callsign list === */
         <div data-testid="admin-user-detail">
-          <button
-            onClick={() => {
-              setSelectedUser(null);
-              setSelectedAdminCallsign(null);
-              setAdminContactHistory(null);
-            }}
-            className="flex items-center gap-2 text-zinc-400 hover:text-amber-500 transition-colors font-mono text-sm mb-4"
-          >
+          <button onClick={() => setSelectedUser(null)} className="flex items-center gap-2 text-zinc-400 hover:text-amber-500 transition-colors font-mono text-sm mb-4">
             <ArrowLeft size={16} /> Liste des utilisateurs
           </button>
 
           <div className="bg-[#121212] border border-zinc-800/80 p-5 mb-4">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between">
               <div>
-                <div className="text-xl font-bold text-amber-500 font-mono">
-                  {selectedUser.callsign}
-                </div>
+                <div className="text-xl font-bold text-amber-500 font-mono">{selectedUser.callsign}</div>
                 <div className="text-sm text-zinc-400 font-mono">{selectedUser.email}</div>
-                <div className="text-xs text-zinc-500 font-mono mt-1">
-                  Inscrit le {formatDate(selectedUser.created_at)}
-                </div>
+                <div className="text-xs text-zinc-500 font-mono mt-1">Inscrit le {formatDate(selectedUser.created_at)}</div>
               </div>
-
               {selectedUser.role !== "admin" && (
-                <button
-                  onClick={() => deleteUser(selectedUser)}
-                  data-testid="admin-delete-user-btn"
-                  className="px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-all"
-                >
+                <button onClick={() => deleteUser(selectedUser)} data-testid="admin-delete-user-btn"
+                  className="px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-all">
                   <Trash size={14} className="inline mr-1" /> Supprimer
                 </button>
               )}
@@ -1049,122 +1022,47 @@ function AdminPanel({ onBack }) {
           <div className="bg-[#121212] border border-zinc-800/80">
             <div className="px-5 py-3 border-b border-zinc-800">
               <h3 className="font-display text-sm font-semibold tracking-tight uppercase text-zinc-400">
-                {selectedAdminCallsign
-                  ? `Détail de ${selectedAdminCallsign}`
-                  : `Contacts de ${selectedUser.callsign}`}
+                Indicatifs de {selectedUser.callsign} ({groupedQsos.length})
               </h3>
             </div>
-
-            {loadingQsos ? (
-              <div className="p-6 text-center">
-                <div className="inline-block w-4 h-6 bg-amber-500 animate-pulse"></div>
-              </div>
-            ) : selectedAdminCallsign && adminContactHistory ? (
-              <div>
-                <div className="p-4 border-b border-zinc-800">
-                  <button
-                    onClick={backToAdminGrouped}
-                    className="flex items-center gap-2 text-zinc-400 hover:text-amber-500 transition-colors font-mono text-sm mb-4"
-                  >
-                    <ArrowLeft size={16} /> Retour aux contacts
-                  </button>
-
-                  <div className="text-xl font-bold text-amber-500 font-mono">
-                    {adminContactHistory.callsign}
-                  </div>
-                  <div className="text-sm text-zinc-400 font-mono">
-                    {adminContactHistory.name || "Nom inconnu"}
-                  </div>
-                  <div className="text-xs text-zinc-500 font-mono mt-2">
-                    Premier contact : {formatDate(adminContactHistory.first_contact)}
-                    <br />
-                    Dernier contact : {formatDate(adminContactHistory.last_contact)}
-                    <br />
-                    Total : {adminContactHistory.total_contacts} contact
-                    {adminContactHistory.total_contacts > 1 ? "s" : ""}
-                  </div>
-                </div>
-
-                <div className="divide-y divide-zinc-800/50">
-                  {adminContactHistory.history.map((qso) => (
-                    <div key={qso.id} className="p-4 sm:px-5 font-mono text-sm">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="text-zinc-200">
-                            {formatDate(qso.date)} {qso.time_utc ? `${qso.time_utc} UTC` : ""}
-                          </div>
-                          <div className="text-zinc-400">
-                            {qso.frequency?.toFixed
-                              ? qso.frequency.toFixed(3)
-                              : qso.frequency}{" "}
-                            MHz {qso.mode ? `— ${qso.mode}` : ""}
-                          </div>
-                          {qso.name && <div className="text-xs text-zinc-500 mt-1">{qso.name}</div>}
-                          {qso.comment && (
-                            <div className="text-xs text-zinc-600 italic mt-1">{qso.comment}</div>
-                          )}
-                        </div>
-
-                        <button
-                          onClick={() => deleteAdminQso(qso.id)}
-                          className="p-2 text-zinc-600 hover:text-red-500 transition-colors"
-                          title="Supprimer ce QSO"
-                        >
-                          <Trash size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                </div>
-              </div>
-            ) : groupedContacts.length === 0 ? (
-              <div className="p-6 text-center text-zinc-500 font-mono text-sm">
-                Aucun contact
-              </div>
+            {groupedQsos.length === 0 ? (
+              <div className="p-6 text-center text-zinc-500 font-mono text-sm">Aucun QSO</div>
             ) : (
               <div className="divide-y divide-zinc-800/50">
-                {groupedContacts.map((contact) => (
-                  <button
-                    key={contact.callsign}
-                    onClick={() => viewAdminContactHistory(contact.callsign)}
-                    className="w-full text-left p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors font-mono text-sm"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-amber-500">{contact.callsign}</span>
-                        <span className="text-zinc-400">{formatDate(contact.first_contact)}</span>
-                        <span className="text-zinc-500">→</span>
-                        <span className="text-zinc-400">{formatDate(contact.last_contact)}</span>
+                {groupedQsos.map((entry) => {
+                  const flagUrl = getFlagUrl(entry.callsign, 24);
+                  return (
+                    <button key={entry.callsign} onClick={() => viewCallsignDetail(entry.callsign)}
+                      className="w-full text-left p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors flex items-center justify-between group" data-testid="admin-callsign-row">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          {flagUrl && <img src={flagUrl} alt="" className="h-3.5 shadow-sm shrink-0" />}
+                          <span className="font-bold text-amber-500 font-mono">{entry.callsign}</span>
+                          <span className="text-zinc-400 font-mono text-sm truncate">{entry.name}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-3 text-xs font-mono text-zinc-500">
+                          <span>Premier : {formatDate(entry.first_contact)}</span>
+                          <span>Dernier : {formatDate(entry.last_contact)}</span>
+                          <span>{entry.total_contacts} contact{entry.total_contacts > 1 ? "s" : ""}</span>
+                        </div>
                       </div>
-                      <span className="text-zinc-300">
-                        {contact.total_contacts} contact{contact.total_contacts > 1 ? "s" : ""}
-                      </span>
-                    </div>
-
-                    {contact.name && (
-                      <div className="text-xs text-zinc-500">{contact.name}</div>
-                    )}
-                  </button>
-                ))}
+                      <CaretRight size={18} className="text-zinc-600 group-hover:text-amber-500 transition-colors shrink-0" />
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
+
       ) : (
+        /* === User list === */
         <>
           <div className="relative mb-4">
-            <MagnifyingGlass
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
-              size={20}
-            />
-            <Input
-              data-testid="admin-search-input"
-              type="text"
-              placeholder="Rechercher par indicatif ou email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm h-12"
-            />
+            <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
+            <Input data-testid="admin-search-input" type="text" placeholder="Rechercher par indicatif ou email..."
+              value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm h-12" />
           </div>
 
           <div className="bg-[#121212] border border-zinc-800/80 overflow-hidden">
@@ -1173,25 +1071,15 @@ function AdminPanel({ onBack }) {
                 <div className="inline-block w-4 h-6 bg-amber-500 animate-pulse"></div>
               </div>
             ) : users.length === 0 ? (
-              <div className="p-6 text-center text-zinc-500 font-mono text-sm">
-                Aucun utilisateur trouvé
-              </div>
+              <div className="p-6 text-center text-zinc-500 font-mono text-sm">Aucun utilisateur trouvé</div>
             ) : (
               <div className="divide-y divide-zinc-800/50">
                 {users.map((u) => (
-                  <div
-                    key={u.id}
-                    className="p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors flex items-center justify-between"
-                    data-testid="admin-user-row"
-                  >
-                    <button onClick={() => viewUserQsos(u)} className="flex-1 text-left min-w-0">
+                  <div key={u.id} className="p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors flex items-center justify-between" data-testid="admin-user-row">
+                    <button onClick={() => viewUser(u)} className="flex-1 text-left min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-bold text-amber-500 font-mono">{u.callsign}</span>
-                        {u.role === "admin" && (
-                          <span className="text-[10px] px-1.5 py-0.5 bg-amber-500/20 text-amber-500 font-mono uppercase">
-                            Admin
-                          </span>
-                        )}
+                        {u.role === "admin" && <span className="text-[10px] px-1.5 py-0.5 bg-amber-500/20 text-amber-500 font-mono uppercase">Admin</span>}
                       </div>
                       <div className="text-xs text-zinc-400 font-mono">{u.email}</div>
                       <div className="flex gap-3 text-xs text-zinc-500 font-mono mt-1">
@@ -1199,14 +1087,9 @@ function AdminPanel({ onBack }) {
                         <span>{u.qso_count} QSO{u.qso_count > 1 ? "s" : ""}</span>
                       </div>
                     </button>
-
                     <div className="flex items-center gap-2 shrink-0">
                       {u.role !== "admin" && (
-                        <button
-                          onClick={() => deleteUser(u)}
-                          className="p-2 text-zinc-600 hover:text-red-500 transition-colors"
-                          data-testid="admin-delete-btn"
-                        >
+                        <button onClick={() => deleteUser(u)} className="p-2 text-zinc-600 hover:text-red-500 transition-colors" data-testid="admin-delete-btn">
                           <Trash size={16} />
                         </button>
                       )}
@@ -1224,12 +1107,6 @@ function AdminPanel({ onBack }) {
 }
 
 // === Dashboard ===
-    </>
-</>
-)}
-</div>
-  );
-}
 function Dashboard() {
   const { user, logout } = useAuth();
   const [grouped, setGrouped] = useState([]);
@@ -1249,7 +1126,7 @@ function Dashboard() {
       if (searchTerm) params.append("search", searchTerm);
       if (bandFilter) params.append("band", bandFilter);
       const res = await axios.get(`${API}/qso/grouped?${params.toString()}`);
-     setGrouped(Array.isArray(res.data) ? res.data : []);
+      setGrouped(res.data);
     } catch (error) {
       if (error.response?.status !== 401) toast.error("Erreur chargement");
     } finally { setLoading(false); }
@@ -1279,15 +1156,9 @@ function Dashboard() {
   };
 
   // Vérifier si la recherche correspond exactement à un indicatif existant
-  console.log("grouped =", grouped);
-
-const searchUpper = (searchTerm || "").toUpperCase().trim();
-
-const exactMatch = Array.isArray(grouped)
-  ? grouped.find(g => g.callsign === searchUpper)
-  : null;
-
-const showAddButton = (searchTerm || "").length >= 2 && !exactMatch;
+  const searchUpper = searchTerm.toUpperCase().trim();
+  const exactMatch = grouped.find(g => g.callsign === searchUpper);
+  const showAddButton = searchTerm.length >= 2 && !exactMatch;
 
   return (
     <div className="min-h-screen bg-[#09090b] relative">
@@ -1476,6 +1347,11 @@ function AppContent() {
       setAuthMode("reset");
     }
   }, []);
+
+  // Always show login page after logout
+  useEffect(() => {
+    if (user === false) setAuthMode("login");
+  }, [user]);
 
   if (checking) {
     return (
