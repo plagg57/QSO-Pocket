@@ -367,7 +367,6 @@ async def create_qso(qso_data: QSOCreate, request: Request):
 @api_router.get("/admin/users/{user_id}/grouped")
 async def get_qsos_grouped(user_id: str, request: Request, search: Optional[str] = None, band: Optional[str] = None):
     user = await get_current_user(request)
-    Gggg
 
 @api_router.get("/admin/users/{user_id}/grouped")
 async def get_qsos_grouped(user_id: str, request: Request, search: Optional[str] = None):
