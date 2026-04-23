@@ -15,16 +15,11 @@ from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt
 import secrets
-print("SERVER.PY CHARGE OK")
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
-print("MONGO_URL present:", "MONGO_URL" in os.environ)
-print("DB_NAME present:", "DB_NAME" in os.environ)
-print("JWT_SECRET present:", "JWT_SECRET" in os.environ)
-print("PORT =", os.environ.get("PORT"))
 
 JWT_ALGORITHM = "HS256"
 
@@ -364,19 +359,10 @@ async def create_qso(qso_data: QSOCreate, request: Request):
     return doc
 
 # Grouped list: one entry per callsign
-@api_router.get("/admin/users/{user_id}/grouped")
-async def get_qsos_grouped(user_id: str, request: Request, search: Optional[str] = None, band: Optional[str] = None):
+@api_router.get("/qso/grouped")
+async def get_qsos_grouped(request: Request, search: Optional[str] = None, band: Optional[str] = None):
     user = await get_current_user(request)
-
-@api_router.get("/admin/users/{user_id}/grouped")
-async def get_qsos_grouped(user_id: str, request: Request, search: Optional[str] = None):
-    user = await get_current_user(request)
-
-    if user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Accès refusé")
-
-    match_stage = {"owner_id": user_id}
-
+    match_stage = {"owner_id": user["id"]}
     if search:
         match_stage["$or"] = [
             {"callsign": {"$regex": search, "$options": "i"}},
@@ -625,6 +611,50 @@ async def admin_user_qsos(user_id: str, request: Request):
     qsos = await db.qsos.find({"owner_id": user_id}, {"_id": 0}).sort("date", -1).to_list(1000)
     return {"user": user, "qsos": qsos}
 
+@api_router.get("/admin/users/{user_id}/grouped")
+async def admin_user_grouped(user_id: str, request: Request):
+    await require_admin(request)
+    pipeline = [
+        {"$match": {"owner_id": user_id}},
+        {"$sort": {"date": 1}},
+        {"$group": {
+            "_id": "$callsign",
+            "callsign": {"$first": "$callsign"},
+            "name": {"$first": "$name"},
+            "first_contact": {"$first": "$date"},
+            "last_contact": {"$last": "$date"},
+            "total_contacts": {"$sum": 1},
+        }},
+        {"$sort": {"first_contact": -1}},
+        {"$project": {"_id": 0}}
+    ]
+    return await db.qsos.aggregate(pipeline).to_list(1000)
+
+@api_router.get("/admin/users/{user_id}/history/{callsign}")
+async def admin_user_history(user_id: str, callsign: str, request: Request):
+    await require_admin(request)
+    qsos = await db.qsos.find(
+        {"callsign": callsign.upper(), "owner_id": user_id}, {"_id": 0}
+    ).sort("date", -1).to_list(1000)
+    if not qsos:
+        raise HTTPException(status_code=404, detail="Aucun QSO trouvé")
+    return {
+        "callsign": callsign.upper(),
+        "name": next((q.get("name", "") for q in qsos if q.get("name")), ""),
+        "first_contact": qsos[-1]["date"],
+        "last_contact": qsos[0]["date"],
+        "total_contacts": len(qsos),
+        "history": qsos
+    }
+
+@api_router.delete("/admin/qso/{qso_id}")
+async def admin_delete_qso(qso_id: str, request: Request):
+    await require_admin(request)
+    result = await db.qsos.delete_one({"id": qso_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="QSO non trouvé")
+    return {"message": "QSO supprimé"}
+
 @api_router.delete("/admin/users/{user_id}")
 async def admin_delete_user(user_id: str, request: Request):
     admin = await require_admin(request)
@@ -637,14 +667,6 @@ async def admin_delete_user(user_id: str, request: Request):
     await db.users.delete_one({"id": user_id})
     return {"message": f"Utilisateur {user.get('callsign')} supprimé"}
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=["https://qso-pocket.vercel.app"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Include router
 app.include_router(api_router)
 
@@ -652,6 +674,14 @@ app.include_router(api_router)
 frontend_url = os.environ.get('REACT_APP_FRONTEND_URL', '')
 cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
 all_origins = [o.strip() for o in cors_origins if o.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=all_origins if "*" not in all_origins else ["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -687,80 +717,6 @@ async def startup():
     elif not verify_password(admin_password, existing["password_hash"]):
         await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
         logger.info("Admin password updated")
-
-app.include_router(api_router)
-@api_router.get("/admin/users/{user_id}/history/{callsign}")
-async def admin_get_contact_history(user_id: str, callsign: str, request: Request):
-    current_user = await get_current_user(request)
-    if current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Accès refusé")
-
-    callsign = callsign.upper()
-
-    qsos = await db.qsos.find({
-        "owner_id": user_id,
-        "callsign": callsign
-    }).sort([
-        ("date", -1),
-        ("time_utc", -1)
-    ]).to_list(1000)
-
-    if not qsos:
-        raise HTTPException(status_code=404, detail="Aucun QSO trouvé pour ce contact")
-
-    # convertir les ObjectId/UUID éventuels si besoin
-    history = []
-    for qso in qsos:
-        history.append({
-            "id": qso.get("id"),
-            "callsign": qso.get("callsign"),
-            "date": qso.get("date"),
-            "time_utc": qso.get("time_utc", ""),
-            "frequency": qso.get("frequency"),
-            "mode": qso.get("mode", ""),
-            "name": qso.get("name", ""),
-            "comment": qso.get("comment", "")
-        })
-
-    return {
-        "callsign": callsign,
-        "name": next((q.get("name") for q in qsos if q.get("name")), ""),
-        "total_contacts": len(qsos),
-        "first_contact": min(q["date"] for q in qsos),
-        "last_contact": max(q["date"] for q in qsos),
-        "history": history
-    }
-
-@api_router.get("/admin/users/{user_id}/grouped")
-async def admin_get_grouped_contacts(user_id: str, request: Request):
-    current_user = await get_current_user(request)
-    if current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Accès refusé")
-
-    pipeline = [
-        {"$match": {"owner_id": user_id}},
-        {"$sort": {"date": 1, "time_utc": 1}},
-        {"$group": {
-            "_id": "$callsign",
-            "callsign": {"$first": "$callsign"},
-            "name": {"$last": "$name"},
-            "first_contact": {"$first": "$date"},
-            "last_contact": {"$last": "$date"},
-            "total_contacts": {"$sum": 1}
-        }},
-        {"$sort": {"first_contact": -1}},
-        {"$project": {
-            "_id": 0,
-            "callsign": 1,
-            "name": 1,
-            "first_contact": 1,
-            "last_contact": 1,
-            "total_contacts": 1
-        }}
-    ]
-
-    results = await db.qsos.aggregate(pipeline).to_list(1000)
-    return results
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
