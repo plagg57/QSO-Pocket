@@ -721,7 +721,38 @@ async def admin_get_contact_history(user_id: str, callsign: str, request: Reques
         "last_contact": max(q["date"] for q in qsos),
         "history": history
     }
-    
+
+@api_router.get("/admin/users/{user_id}/grouped")
+async def admin_get_grouped_contacts(user_id: str, request: Request):
+    current_user = await get_current_user(request)
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    pipeline = [
+        {"$match": {"owner_id": user_id}},
+        {"$sort": {"date": 1, "time_utc": 1}},
+        {"$group": {
+            "_id": "$callsign",
+            "callsign": {"$first": "$callsign"},
+            "name": {"$last": "$name"},
+            "first_contact": {"$first": "$date"},
+            "last_contact": {"$last": "$date"},
+            "total_contacts": {"$sum": 1}
+        }},
+        {"$sort": {"first_contact": -1}},
+        {"$project": {
+            "_id": 0,
+            "callsign": 1,
+            "name": 1,
+            "first_contact": 1,
+            "last_contact": 1,
+            "total_contacts": 1
+        }}
+    ]
+
+    results = await db.qsos.aggregate(pipeline).to_list(1000)
+    return results
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
