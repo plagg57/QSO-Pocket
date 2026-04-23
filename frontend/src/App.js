@@ -832,6 +832,33 @@ function AdminPanel({ onBack }) {
   const [userQsos, setUserQsos] = useState([]);
   const [loadingQsos, setLoadingQsos] = useState(false);
 
+// regroupement des QSOs
+const groupedContacts = Object.values(
+  userQsos.reduce((acc, qso) => {
+    if (!acc[qso.callsign]) {
+      acc[qso.callsign] = {
+        callsign: qso.callsign,
+        name: qso.name,
+        total_contacts: 0,
+        first_contact: qso.date,
+        last_contact: qso.date,
+      };
+    }
+
+    acc[qso.callsign].total_contacts++;
+
+    if (qso.date < acc[qso.callsign].first_contact) {
+      acc[qso.callsign].first_contact = qso.date;
+    }
+
+    if (qso.date > acc[qso.callsign].last_contact) {
+      acc[qso.callsign].last_contact = qso.date;
+    }
+
+    return acc;
+  }, {})
+);
+
   const fetchUsers = useCallback(async () => {
     try {
       const params = new URLSearchParams();
@@ -929,24 +956,35 @@ function AdminPanel({ onBack }) {
               <div className="p-6 text-center">
                 <div className="inline-block w-4 h-6 bg-amber-500 animate-pulse"></div>
               </div>
-            ) : userQsos.length === 0 ? (
-              <div className="p-6 text-center text-zinc-500 font-mono text-sm">Aucun QSO</div>
-            ) : (
-              <div className="divide-y divide-zinc-800/50">
-                {userQsos.map((qso) => (
-                  <div key={qso.id} className="p-4 sm:px-5 font-mono text-sm">
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="font-bold text-amber-500">{qso.callsign}</span>
-                      <span className="text-zinc-400">{formatDate(qso.date)}</span>
-                      <span className="text-zinc-300">{qso.frequency?.toFixed(3)} MHz</span>
-                      {qso.mode && <span className="text-zinc-500">{qso.mode}</span>}
-                    </div>
-                    {qso.name && <div className="text-xs text-zinc-500">{qso.name}</div>}
-                    {qso.comment && <div className="text-xs text-zinc-600 italic mt-1">{qso.comment}</div>}
-                  </div>
-                ))}
-              </div>
-            )}
+          ) : groupedContacts.length === 0 ? (
+  <div className="p-6 text-center text-zinc-500 font-mono text-sm">Aucun contact</div>
+) : (
+  <div className="divide-y divide-zinc-800/50">
+    {groupedContacts.map((contact) => (
+      <button
+        key={contact.callsign}
+        onClick={() => viewAdminContactHistory(contact.callsign)}
+        className="w-full text-left p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors font-mono text-sm"
+      >
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-3">
+            <span className="font-bold text-amber-500">{contact.callsign}</span>
+            <span className="text-zinc-400">{formatDate(contact.first_contact)}</span>
+            <span className="text-zinc-500">→</span>
+            <span className="text-zinc-400">{formatDate(contact.last_contact)}</span>
+          </div>
+          <span className="text-zinc-300">
+            {contact.total_contacts} contact{contact.total_contacts > 1 ? "s" : ""}
+          </span>
+        </div>
+
+        {contact.name && (
+          <div className="text-xs text-zinc-500">{contact.name}</div>
+        )}
+      </button>
+    ))}
+  </div>
+)
           </div>
         </div>
       ) : (
