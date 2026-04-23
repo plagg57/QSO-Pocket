@@ -1035,10 +1035,12 @@ const groupedContacts = Object.values(
         </>
       )}
     </div>
-  );
-}
+  ) : (
+    <>
 
 // === Dashboard ===
+    </>
+)
 function Dashboard() {
   const { user, logout } = useAuth();
   const [grouped, setGrouped] = useState([]);
