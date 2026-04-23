@@ -865,6 +865,7 @@ function AdminPanel({ onBack }) {
     setDetailData(null);
     try {
       const res = await axios.get(`${API}/admin/users/${u.id}/grouped`);
+      console.log("GROUPED ADMIN =", res.data);
       setGroupedQsos(res.data);
     } catch { toast.error("Erreur chargement QSOs"); }
   };
