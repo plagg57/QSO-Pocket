@@ -984,9 +984,6 @@ const groupedContacts = Object.values(
       </button>
     ))}
   </div>
-)
-          </div>
-        </div>
       ) : (
         <>
           {/* Search */}
