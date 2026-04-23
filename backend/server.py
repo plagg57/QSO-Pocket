@@ -679,6 +679,49 @@ async def startup():
         await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
         logger.info("Admin password updated")
 
+app.include_router(api_router)
+@api_router.get("/admin/users/{user_id}/history/{callsign}")
+async def admin_get_contact_history(user_id: str, callsign: str, request: Request):
+    current_user = await get_current_user(request)
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    callsign = callsign.upper()
+
+    qsos = await db.qsos.find({
+        "owner_id": user_id,
+        "callsign": callsign
+    }).sort([
+        ("date", -1),
+        ("time_utc", -1)
+    ]).to_list(1000)
+
+    if not qsos:
+        raise HTTPException(status_code=404, detail="Aucun QSO trouvé pour ce contact")
+
+    # convertir les ObjectId/UUID éventuels si besoin
+    history = []
+    for qso in qsos:
+        history.append({
+            "id": qso.get("id"),
+            "callsign": qso.get("callsign"),
+            "date": qso.get("date"),
+            "time_utc": qso.get("time_utc", ""),
+            "frequency": qso.get("frequency"),
+            "mode": qso.get("mode", ""),
+            "name": qso.get("name", ""),
+            "comment": qso.get("comment", "")
+        })
+
+    return {
+        "callsign": callsign,
+        "name": next((q.get("name") for q in qsos if q.get("name")), ""),
+        "total_contacts": len(qsos),
+        "first_contact": min(q["date"] for q in qsos),
+        "last_contact": max(q["date"] for q in qsos),
+        "history": history
+    }
+    
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
