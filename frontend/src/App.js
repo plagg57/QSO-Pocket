@@ -982,9 +982,11 @@ const groupedContacts = Object.values(
           <div className="text-xs text-zinc-500">{contact.name}</div>
         )}
       </button>
-    ))}
-  </div>
-      ) : (
+   ))}
+</div>
+)}
+</div>
+) : (
         <>
           {/* Search */}
           <div className="relative mb-4">
