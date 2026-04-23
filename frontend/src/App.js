@@ -1114,7 +1114,7 @@ function AdminPanel({ onBack }) {
                         </button>
                       </div>
                     </div>
-                  ))}
+                  ))
                 </div>
               </div>
             ) : groupedContacts.length === 0 ? (
