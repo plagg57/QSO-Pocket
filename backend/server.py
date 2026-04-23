@@ -364,10 +364,12 @@ async def create_qso(qso_data: QSOCreate, request: Request):
     return doc
 
 # Grouped list: one entry per callsign
-@api_router.get("/qso/grouped")
-async def get_qsos_grouped(request: Request, search: Optional[str] = None, band: Optional[str] = None):
+@api_router.get("/admin/users/{user_id}/grouped")
+async def get_qsos_grouped(user_id: str, request: Request, search: Optional[str] = None, band: Optional[str] = None):
     user = await get_current_user(request)
-    match_stage = {"owner_id": user["id"]}
+    if user.get("role") != "admin":
+    raise HTTPException(status_code=403, detail="Accès refusé")
+    match_stage = {"owner_id": user_id}
     if search:
         match_stage["$or"] = [
             {"callsign": {"$regex": search, "$options": "i"}},
