@@ -611,6 +611,50 @@ async def admin_user_qsos(user_id: str, request: Request):
     qsos = await db.qsos.find({"owner_id": user_id}, {"_id": 0}).sort("date", -1).to_list(1000)
     return {"user": user, "qsos": qsos}
 
+@api_router.get("/admin/users/{user_id}/grouped")
+async def admin_user_grouped(user_id: str, request: Request):
+    await require_admin(request)
+    pipeline = [
+        {"$match": {"owner_id": user_id}},
+        {"$sort": {"date": 1}},
+        {"$group": {
+            "_id": "$callsign",
+            "callsign": {"$first": "$callsign"},
+            "name": {"$first": "$name"},
+            "first_contact": {"$first": "$date"},
+            "last_contact": {"$last": "$date"},
+            "total_contacts": {"$sum": 1},
+        }},
+        {"$sort": {"first_contact": -1}},
+        {"$project": {"_id": 0}}
+    ]
+    return await db.qsos.aggregate(pipeline).to_list(1000)
+
+@api_router.get("/admin/users/{user_id}/history/{callsign}")
+async def admin_user_history(user_id: str, callsign: str, request: Request):
+    await require_admin(request)
+    qsos = await db.qsos.find(
+        {"callsign": callsign.upper(), "owner_id": user_id}, {"_id": 0}
+    ).sort("date", -1).to_list(1000)
+    if not qsos:
+        raise HTTPException(status_code=404, detail="Aucun QSO trouvé")
+    return {
+        "callsign": callsign.upper(),
+        "name": next((q.get("name", "") for q in qsos if q.get("name")), ""),
+        "first_contact": qsos[-1]["date"],
+        "last_contact": qsos[0]["date"],
+        "total_contacts": len(qsos),
+        "history": qsos
+    }
+
+@api_router.delete("/admin/qso/{qso_id}")
+async def admin_delete_qso(qso_id: str, request: Request):
+    await require_admin(request)
+    result = await db.qsos.delete_one({"id": qso_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="QSO non trouvé")
+    return {"message": "QSO supprimé"}
+
 @api_router.delete("/admin/users/{user_id}")
 async def admin_delete_user(user_id: str, request: Request):
     admin = await require_admin(request)

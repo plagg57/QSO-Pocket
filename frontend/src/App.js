@@ -828,8 +828,10 @@ function AdminPanel({ onBack }) {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
-  const [userQsos, setUserQsos] = useState([]);
-  const [loadingQsos, setLoadingQsos] = useState(false);
+  const [groupedQsos, setGroupedQsos] = useState([]);
+  const [selectedCallsign, setSelectedCallsign] = useState(null);
+  const [detailData, setDetailData] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -850,14 +852,34 @@ function AdminPanel({ onBack }) {
 
   useEffect(() => { fetchUsers(); fetchStats(); }, [fetchUsers, fetchStats]);
 
-  const viewUserQsos = async (u) => {
+  const viewUser = async (u) => {
     setSelectedUser(u);
-    setLoadingQsos(true);
+    setSelectedCallsign(null);
+    setDetailData(null);
     try {
-      const res = await axios.get(`${API}/admin/users/${u.id}/qsos`);
-      setUserQsos(res.data.qsos);
+      const res = await axios.get(`${API}/admin/users/${u.id}/grouped`);
+      setGroupedQsos(res.data);
     } catch { toast.error("Erreur chargement QSOs"); }
-    finally { setLoadingQsos(false); }
+  };
+
+  const viewCallsignDetail = async (cs) => {
+    setSelectedCallsign(cs);
+    setLoadingDetail(true);
+    try {
+      const res = await axios.get(`${API}/admin/users/${selectedUser.id}/history/${encodeURIComponent(cs)}`);
+      setDetailData(res.data);
+    } catch { toast.error("Erreur chargement historique"); }
+    finally { setLoadingDetail(false); }
+  };
+
+  const deleteQso = async (qsoId) => {
+    if (!window.confirm("Supprimer ce QSO ?")) return;
+    try {
+      await axios.delete(`${API}/admin/qso/${qsoId}`);
+      toast.success("QSO supprimé");
+      viewCallsignDetail(selectedCallsign);
+      fetchStats();
+    } catch { toast.error("Erreur suppression"); }
   };
 
   const deleteUser = async (u) => {
@@ -875,6 +897,9 @@ function AdminPanel({ onBack }) {
     if (!d) return "—";
     return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
   };
+
+  // Detail view for a callsign
+  const sortedHistory = detailData?.history ? [...detailData.history].sort((a, b) => b.date.localeCompare(a.date) || (b.time_utc || "").localeCompare(a.time_utc || "")) : [];
 
   return (
     <div data-testid="admin-panel">
@@ -896,14 +921,83 @@ function AdminPanel({ onBack }) {
         </div>
       </div>
 
-      {selectedUser ? (
+      {selectedUser && selectedCallsign && detailData ? (
+        /* === Callsign detail for a user === */
+        <div data-testid="admin-callsign-detail">
+          <button onClick={() => { setSelectedCallsign(null); setDetailData(null); viewUser(selectedUser); }}
+            className="flex items-center gap-2 text-zinc-400 hover:text-amber-500 transition-colors font-mono text-sm mb-4">
+            <ArrowLeft size={16} /> QSOs de {selectedUser.callsign}
+          </button>
+
+          <div className="bg-[#121212] border border-zinc-800/80 p-5 mb-4">
+            <div className="flex items-center gap-3 mb-2">
+              {getFlagUrl(detailData.callsign, 32) && <img src={getFlagUrl(detailData.callsign, 32)} alt="" className="h-5 shadow-sm" />}
+              <div className="text-2xl font-bold text-amber-500 font-mono">{detailData.callsign}</div>
+            </div>
+            {getCountryName(detailData.callsign) && <div className="text-xs text-zinc-500 font-mono uppercase tracking-wider mb-1">{getCountryName(detailData.callsign)}</div>}
+            <div className="text-base text-zinc-300 font-mono mb-4">{detailData.name || "—"}</div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-[#09090b] border border-zinc-800 p-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500 mb-1">Premier</div>
+                <div className="text-xs text-zinc-200 font-mono">{formatDate(detailData.first_contact)}</div>
+              </div>
+              <div className="bg-[#09090b] border border-zinc-800 p-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500 mb-1">Dernier</div>
+                <div className="text-xs text-zinc-200 font-mono">{formatDate(detailData.last_contact)}</div>
+              </div>
+              <div className="bg-[#09090b] border border-zinc-800 p-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500 mb-1">Total</div>
+                <div className="text-xl font-bold text-amber-500 font-mono">{detailData.total_contacts}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-[#121212] border border-zinc-800/80">
+            <div className="px-5 py-3 border-b border-zinc-800">
+              <h3 className="font-display text-sm font-semibold tracking-tight uppercase text-zinc-400">Historique</h3>
+            </div>
+            <div className="divide-y divide-zinc-800/50">
+              {sortedHistory.map((qso) => (
+                <div key={qso.id} className="p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors" data-testid="admin-history-entry">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1 font-mono text-sm">
+                      <div>
+                        <span className="text-zinc-500 text-xs">Date</span>
+                        <div className="text-zinc-200">{formatDate(qso.date)}{qso.time_utc ? ` ${qso.time_utc}` : ""}</div>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 text-xs">Fréquence</span>
+                        <div className="text-zinc-200">{qso.frequency?.toFixed(3)} MHz{getBand(qso.frequency) ? ` (${getBand(qso.frequency)})` : ""}</div>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 text-xs">Mode</span>
+                        <div className="text-zinc-200">{qso.mode || "—"}</div>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 text-xs">Nom</span>
+                        <div className="text-zinc-300">{qso.name || "—"}</div>
+                      </div>
+                    </div>
+                    <button onClick={() => deleteQso(qso.id)} className="ml-2 p-1.5 text-zinc-600 hover:text-red-500 transition-colors" data-testid="admin-delete-qso-btn">
+                      <Trash size={14} />
+                    </button>
+                  </div>
+                  {qso.comment && <div className="mt-2 text-xs text-zinc-400 font-mono italic border-l-2 border-zinc-700 pl-3">{qso.comment}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+      ) : selectedUser ? (
+        /* === User's grouped callsign list === */
         <div data-testid="admin-user-detail">
           <button onClick={() => setSelectedUser(null)} className="flex items-center gap-2 text-zinc-400 hover:text-amber-500 transition-colors font-mono text-sm mb-4">
             <ArrowLeft size={16} /> Liste des utilisateurs
           </button>
 
           <div className="bg-[#121212] border border-zinc-800/80 p-5 mb-4">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between">
               <div>
                 <div className="text-xl font-bold text-amber-500 font-mono">{selectedUser.callsign}</div>
                 <div className="text-sm text-zinc-400 font-mono">{selectedUser.email}</div>
@@ -921,36 +1015,42 @@ function AdminPanel({ onBack }) {
           <div className="bg-[#121212] border border-zinc-800/80">
             <div className="px-5 py-3 border-b border-zinc-800">
               <h3 className="font-display text-sm font-semibold tracking-tight uppercase text-zinc-400">
-                QSOs de {selectedUser.callsign} ({userQsos.length})
+                Indicatifs de {selectedUser.callsign} ({groupedQsos.length})
               </h3>
             </div>
-            {loadingQsos ? (
-              <div className="p-6 text-center">
-                <div className="inline-block w-4 h-6 bg-amber-500 animate-pulse"></div>
-              </div>
-            ) : userQsos.length === 0 ? (
+            {groupedQsos.length === 0 ? (
               <div className="p-6 text-center text-zinc-500 font-mono text-sm">Aucun QSO</div>
             ) : (
               <div className="divide-y divide-zinc-800/50">
-                {userQsos.map((qso) => (
-                  <div key={qso.id} className="p-4 sm:px-5 font-mono text-sm">
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="font-bold text-amber-500">{qso.callsign}</span>
-                      <span className="text-zinc-400">{formatDate(qso.date)}</span>
-                      <span className="text-zinc-300">{qso.frequency?.toFixed(3)} MHz</span>
-                      {qso.mode && <span className="text-zinc-500">{qso.mode}</span>}
-                    </div>
-                    {qso.name && <div className="text-xs text-zinc-500">{qso.name}</div>}
-                    {qso.comment && <div className="text-xs text-zinc-600 italic mt-1">{qso.comment}</div>}
-                  </div>
-                ))}
+                {groupedQsos.map((entry) => {
+                  const flagUrl = getFlagUrl(entry.callsign, 24);
+                  return (
+                    <button key={entry.callsign} onClick={() => viewCallsignDetail(entry.callsign)}
+                      className="w-full text-left p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors flex items-center justify-between group" data-testid="admin-callsign-row">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          {flagUrl && <img src={flagUrl} alt="" className="h-3.5 shadow-sm shrink-0" />}
+                          <span className="font-bold text-amber-500 font-mono">{entry.callsign}</span>
+                          <span className="text-zinc-400 font-mono text-sm truncate">{entry.name}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-3 text-xs font-mono text-zinc-500">
+                          <span>Premier : {formatDate(entry.first_contact)}</span>
+                          <span>Dernier : {formatDate(entry.last_contact)}</span>
+                          <span>{entry.total_contacts} contact{entry.total_contacts > 1 ? "s" : ""}</span>
+                        </div>
+                      </div>
+                      <CaretRight size={18} className="text-zinc-600 group-hover:text-amber-500 transition-colors shrink-0" />
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
+
       ) : (
+        /* === User list === */
         <>
-          {/* Search */}
           <div className="relative mb-4">
             <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
             <Input data-testid="admin-search-input" type="text" placeholder="Rechercher par indicatif ou email..."
@@ -958,7 +1058,6 @@ function AdminPanel({ onBack }) {
               className="w-full pl-10 bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm h-12" />
           </div>
 
-          {/* Users list */}
           <div className="bg-[#121212] border border-zinc-800/80 overflow-hidden">
             {loading ? (
               <div className="p-6 text-center">
@@ -970,7 +1069,7 @@ function AdminPanel({ onBack }) {
               <div className="divide-y divide-zinc-800/50">
                 {users.map((u) => (
                   <div key={u.id} className="p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors flex items-center justify-between" data-testid="admin-user-row">
-                    <button onClick={() => viewUserQsos(u)} className="flex-1 text-left min-w-0">
+                    <button onClick={() => viewUser(u)} className="flex-1 text-left min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-bold text-amber-500 font-mono">{u.callsign}</span>
                         {u.role === "admin" && <span className="text-[10px] px-1.5 py-0.5 bg-amber-500/20 text-amber-500 font-mono uppercase">Admin</span>}
