@@ -368,7 +368,8 @@ async def create_qso(qso_data: QSOCreate, request: Request):
 async def get_qsos_grouped(user_id: str, request: Request, search: Optional[str] = None, band: Optional[str] = None):
     user = await get_current_user(request)
     if user.get("role") != "admin":
-    raise HTTPException(status_code=403, detail="Accès refusé")
+    raise 
+    HTTPException(status_code=403, detail="Accès refusé")
     match_stage = {"owner_id": user_id}
     if search:
         match_stage["$or"] = [
