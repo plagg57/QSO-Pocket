@@ -383,7 +383,6 @@ async def get_qsos_grouped(user_id: str, request: Request, search: Optional[str]
             {"callsign": {"$regex": search, "$options": "i"}},
             {"name": {"$regex": search, "$options": "i"}}
         ]
-        ]
     
     # Band filter: convert band name to frequency range
     if band:
