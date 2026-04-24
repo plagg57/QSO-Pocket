@@ -1232,17 +1232,13 @@ function Dashboard() {
               )}
 
               {/* Band filter */}
-              <div className="mt-3 flex flex-wrap gap-1.5" data-testid="band-filter">
-                <button onClick={() => setBandFilter("")}
-                  className={`px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider border transition-all ${!bandFilter ? "bg-amber-500 text-black border-amber-500 font-bold" : "bg-[#09090b] text-zinc-400 border-zinc-700 hover:border-zinc-500"}`}>
-                  Toutes
-                </button>
-                {BANDS.map((b) => (
-                  <button key={b} onClick={() => setBandFilter(bandFilter === b ? "" : b)}
-                    className={`px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider border transition-all ${bandFilter === b ? "bg-amber-500 text-black border-amber-500 font-bold" : "bg-[#09090b] text-zinc-400 border-zinc-700 hover:border-zinc-500"}`}>
-                    {b}
-                  </button>
-                ))}
+             <div className="mt-3">
+                <select value={bandFilter} onChange={(e) => setBandFilter(e.target.value)} data-testid="band-filter"
+                  className="w-full bg-[#09090b] border border-zinc-700 text-zinc-100 font-mono text-sm h-10 px-3 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 appearance-none"
+                  style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a1a1aa' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" }}>
+                  <option value="">Toutes les bandes</option>
+                  {BANDS.map((b) => <option key={b} value={b}>{b.toUpperCase()}</option>)}
+                </select>
               </div>
             </div>
 
