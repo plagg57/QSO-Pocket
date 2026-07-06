@@ -1310,6 +1310,19 @@ function Dashboard() {
               className="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 hover:bg-amber-600 text-black flex items-center justify-center shadow-lg shadow-amber-500/20 transition-all duration-200 z-20">
               <Plus size={24} weight="bold" />
             </button>
+
+            {/* Footer */}
+            <div className="mt-8 mb-24 space-y-4">
+              <button onClick={() => {
+                if (window.confirm("Merci de soutenir le développement de QSO Pocket !\n\nChaque don contribue à améliorer l'application et à financer son hébergement.")) {
+                  window.open("https://paypal.me/JonathanZils", "_blank");
+                }
+              }} data-testid="support-btn"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#121212] hover:bg-[#1a1a1a] text-zinc-300 border border-zinc-800 font-mono text-xs uppercase tracking-wider transition-all duration-200">
+                <span className="text-red-500">&#9829;</span> Soutenir QSO Pocket
+              </button>
+              <p className="text-center text-xs text-zinc-600 font-mono">Créé par F4MVD (Jonathan Zils)</p>
+            </div>
           </>
         )}
 
