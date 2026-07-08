@@ -15,6 +15,7 @@ from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt
 import secrets
+import httpx
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -356,6 +357,12 @@ async def create_qso(qso_data: QSOCreate, request: Request):
     }
     await db.qsos.insert_one(doc)
     doc.pop("_id", None)
+    
+    # Auto-sync to Wavelog if enabled
+    config = await db.wavelog_config.find_one({"user_id": user["id"]}, {"_id": 0})
+    if config and config.get("wavelog_auto_sync"):
+        await sync_qso_to_wavelog(user["id"], doc, user.get("callsign", ""))
+    
     return doc
 
 # Grouped list: one entry per callsign
@@ -666,6 +673,187 @@ async def admin_delete_user(user_id: str, request: Request):
     await db.qsos.delete_many({"owner_id": user_id})
     await db.users.delete_one({"id": user_id})
     return {"message": f"Utilisateur {user.get('callsign')} supprimé"}
+
+# === Wavelog Integration ===
+class WavelogConfig(BaseModel):
+    wavelog_url: str
+    wavelog_api_key: str
+    wavelog_station_id: str = "1"
+    wavelog_auto_sync: bool = False
+
+@api_router.get("/wavelog/config")
+async def get_wavelog_config(request: Request):
+    user = await get_current_user(request)
+    config = await db.wavelog_config.find_one({"user_id": user["id"]}, {"_id": 0})
+    if not config:
+        return {"configured": False, "wavelog_url": "", "wavelog_api_key": "", "wavelog_station_id": "1", "wavelog_auto_sync": False}
+    return {
+        "configured": True,
+        "wavelog_url": config.get("wavelog_url", ""),
+        "wavelog_api_key": config.get("wavelog_api_key", ""),
+        "wavelog_station_id": config.get("wavelog_station_id", "1"),
+        "wavelog_auto_sync": config.get("wavelog_auto_sync", False)
+    }
+
+@api_router.put("/wavelog/config")
+async def save_wavelog_config(data: WavelogConfig, request: Request):
+    user = await get_current_user(request)
+    url = data.wavelog_url.rstrip("/")
+    await db.wavelog_config.update_one(
+        {"user_id": user["id"]},
+        {"$set": {
+            "user_id": user["id"],
+            "wavelog_url": url,
+            "wavelog_api_key": data.wavelog_api_key,
+            "wavelog_station_id": data.wavelog_station_id,
+            "wavelog_auto_sync": data.wavelog_auto_sync
+        }},
+        upsert=True
+    )
+    return {"message": "Configuration Wavelog sauvegardée"}
+
+@api_router.post("/wavelog/test")
+async def test_wavelog_connection(request: Request):
+    user = await get_current_user(request)
+    config = await db.wavelog_config.find_one({"user_id": user["id"]}, {"_id": 0})
+    if not config or not config.get("wavelog_url"):
+        raise HTTPException(status_code=400, detail="Wavelog non configuré")
+    
+    url = config["wavelog_url"].rstrip("/")
+    key = config["wavelog_api_key"]
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            res = await client.get(f"{url}/api/statistics/{key}", headers={"Accept": "application/json"})
+            if res.status_code == 200:
+                return {"success": True, "message": "Connexion réussie", "data": res.json()}
+            else:
+                return {"success": False, "message": f"Erreur {res.status_code}: {res.text[:200]}"}
+    except httpx.TimeoutException:
+        return {"success": False, "message": "Timeout — vérifiez l'URL"}
+    except Exception as e:
+        return {"success": False, "message": f"Erreur: {str(e)[:200]}"}
+
+def qso_to_adif_string(qso: dict, my_callsign: str) -> str:
+    def af(name, value):
+        if not value: return ""
+        v = str(value)
+        return f"<{name}:{len(v)}>{v}"
+    
+    s = ""
+    s += af("CALL", qso.get("callsign", ""))
+    raw_date = qso.get("date", "")
+    if raw_date:
+        s += af("QSO_DATE", raw_date.replace("-", ""))
+    time_utc = qso.get("time_utc", "")
+    if time_utc:
+        s += af("TIME_ON", time_utc.replace(":", ""))
+    freq = qso.get("frequency")
+    if freq:
+        s += af("FREQ", f"{freq:.6f}")
+    band = freq_to_band(freq) if freq else None
+    if band:
+        s += af("BAND", band)
+    mode = qso.get("mode", "")
+    if mode:
+        s += af("MODE", mode)
+    name = qso.get("name", "")
+    if name:
+        s += af("NAME", name)
+    comment = qso.get("comment", "")
+    if comment:
+        s += af("COMMENT", comment)
+    s += af("MY_CALLSIGN", my_callsign)
+    s += "<EOR>"
+    return s
+
+async def sync_qso_to_wavelog(user_id: str, qso: dict, my_callsign: str):
+    """Sync a single QSO to Wavelog. Returns (success, message)."""
+    config = await db.wavelog_config.find_one({"user_id": user_id}, {"_id": 0})
+    if not config or not config.get("wavelog_url") or not config.get("wavelog_api_key"):
+        return False, "Wavelog non configuré"
+    
+    url = config["wavelog_url"].rstrip("/")
+    adif_str = qso_to_adif_string(qso, my_callsign)
+    payload = {
+        "key": config["wavelog_api_key"],
+        "station_profile_id": config.get("wavelog_station_id", "1"),
+        "type": "adif",
+        "string": adif_str
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            res = await client.post(f"{url}/api/qso", json=payload, headers={"Accept": "application/json", "Content-Type": "application/json"})
+            if res.status_code == 200 or res.status_code == 201:
+                # Log success
+                await db.wavelog_sync_log.insert_one({
+                    "user_id": user_id,
+                    "qso_id": qso.get("id"),
+                    "callsign": qso.get("callsign"),
+                    "status": "success",
+                    "message": "Synchronisé",
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                })
+                return True, "OK"
+            else:
+                msg = f"Erreur {res.status_code}: {res.text[:150]}"
+                await db.wavelog_sync_log.insert_one({
+                    "user_id": user_id,
+                    "qso_id": qso.get("id"),
+                    "callsign": qso.get("callsign"),
+                    "status": "error",
+                    "message": msg,
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                })
+                return False, msg
+    except Exception as e:
+        msg = str(e)[:150]
+        await db.wavelog_sync_log.insert_one({
+            "user_id": user_id,
+            "qso_id": qso.get("id"),
+            "callsign": qso.get("callsign"),
+            "status": "error",
+            "message": msg,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        return False, msg
+
+@api_router.post("/wavelog/sync")
+async def sync_all_to_wavelog(request: Request):
+    user = await get_current_user(request)
+    config = await db.wavelog_config.find_one({"user_id": user["id"]}, {"_id": 0})
+    if not config or not config.get("wavelog_url"):
+        raise HTTPException(status_code=400, detail="Wavelog non configuré")
+    
+    # Get all QSOs not yet synced
+    synced_ids = await db.wavelog_sync_log.distinct("qso_id", {"user_id": user["id"], "status": "success"})
+    qsos = await db.qsos.find({"owner_id": user["id"], "id": {"$nin": synced_ids}}, {"_id": 0}).to_list(5000)
+    
+    if not qsos:
+        return {"synced": 0, "errors": 0, "message": "Tous les QSOs sont déjà synchronisés"}
+    
+    synced = 0
+    errors = 0
+    for qso in qsos:
+        ok, msg = await sync_qso_to_wavelog(user["id"], qso, user.get("callsign", ""))
+        if ok:
+            synced += 1
+        else:
+            errors += 1
+    
+    return {"synced": synced, "errors": errors, "total": len(qsos), "message": f"{synced} synchronisé(s), {errors} erreur(s)"}
+
+@api_router.get("/wavelog/log")
+async def get_wavelog_sync_log(request: Request):
+    user = await get_current_user(request)
+    logs = await db.wavelog_sync_log.find({"user_id": user["id"]}, {"_id": 0}).sort("timestamp", -1).to_list(50)
+    return logs
+
+@api_router.delete("/wavelog/log")
+async def clear_wavelog_sync_log(request: Request):
+    user = await get_current_user(request)
+    await db.wavelog_sync_log.delete_many({"user_id": user["id"]})
+    return {"message": "Journal vidé"}
 
 # Include router
 app.include_router(api_router)
