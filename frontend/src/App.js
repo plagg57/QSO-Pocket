@@ -438,13 +438,13 @@ function AddQSOModal({ callsign, prefillName, onClose, onAdded }) {
               </div>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
+          <div className="grid grid-cols-5 gap-3">
+            <div className="col-span-3 space-y-2">
               <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><CalendarBlank size={14} /> Date</Label>
               <Input data-testid="qso-date-input" type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                 className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
             </div>
-            <div className="space-y-2">
+            <div className="col-span-2 space-y-2">
               <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Clock size={14} /> Heure UTC</Label>
               <Input data-testid="qso-time-input" type="time" value={formData.time_utc} onChange={(e) => setFormData({ ...formData, time_utc: e.target.value })}
                 className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
