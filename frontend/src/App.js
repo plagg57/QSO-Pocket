@@ -1444,12 +1444,25 @@ function Dashboard() {
 
             {/* Export ADIF - en bas */}
             {stats.total_qsos > 0 && (
-              <button onClick={() => {
-                const token = localStorage.getItem("qso_token");
-                if (token) {
-                  window.open(`${API}/qso/export/adif?token=${encodeURIComponent(token)}`, "_blank");
-                } else {
-                  toast.error("Veuillez vous reconnecter pour exporter");
+              <button onClick={async () => {
+                try {
+                  const token = localStorage.getItem("qso_token");
+                  const res = await fetch(`${API}/qso/export/adif`, {
+                    credentials: "include",
+                    headers: token ? { Authorization: `Bearer ${token}` } : {}
+                  });
+                  if (!res.ok) throw new Error("Erreur export");
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = "qso_log.adi";
+                  a.style.display = "none";
+                  document.body.appendChild(a);
+                  a.click();
+                  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+                } catch {
+                  toast.error("Erreur export ADIF — reconnectez-vous si le problème persiste");
                 }
               }} data-testid="export-adif-btn"
                 className="w-full mt-6 mb-20 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#121212] hover:bg-[#1a1a1a] text-zinc-300 border border-zinc-800 font-mono text-xs uppercase tracking-wider transition-all duration-200">
