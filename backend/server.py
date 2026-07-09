@@ -449,9 +449,20 @@ async def update_contact_name(callsign: str, data: UpdateNameRequest, request: R
 
 # Export ADIF
 @api_router.get("/qso/export/adif")
-async def export_adif(request: Request):
+async def export_adif(request: Request, token: Optional[str] = None):
     from fastapi.responses import Response as RawResponse
-    user = await get_current_user(request)
+    # Support token via query param for direct download on mobile
+    if token:
+        try:
+            payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
+            user_doc = await db.users.find_one({"id": payload["sub"]})
+            if not user_doc:
+                raise HTTPException(status_code=401, detail="User not found")
+            user = {"id": user_doc["id"], "callsign": user_doc["callsign"]}
+        except Exception:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    else:
+        user = await get_current_user(request)
     qsos = await db.qsos.find({"owner_id": user["id"]}, {"_id": 0}).sort("date", 1).to_list(10000)
 
     def adif_field(name, value):
