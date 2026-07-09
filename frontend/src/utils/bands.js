@@ -11,13 +11,17 @@ const BANDS = [
   { min: 18.068, max: 18.168, band: "17m" },
   { min: 21.0, max: 21.45, band: "15m" },
   { min: 24.89, max: 24.99, band: "12m" },
+  { min: 26.965, max: 27.405, band: "11m" },
   { min: 28.0, max: 29.7, band: "10m" },
-  { min: 50.0, max: 52.0, band: "6m" },
+  { min: 50.0, max: 54.0, band: "6m" },
   { min: 70.0, max: 70.5, band: "4m" },
-  { min: 144.0, max: 146.0, band: "2m" },
+  { min: 144.0, max: 148.0, band: "2m" },
+  { min: 222.0, max: 225.0, band: "1.25m" },
   { min: 430.0, max: 440.0, band: "70cm" },
+  { min: 902.0, max: 928.0, band: "33cm" },
   { min: 1240.0, max: 1300.0, band: "23cm" },
   { min: 2300.0, max: 2450.0, band: "13cm" },
+  { min: 5650.0, max: 5925.0, band: "5cm" },
 ];
 
 export function getBand(frequencyMHz) {

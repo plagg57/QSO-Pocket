@@ -34,7 +34,7 @@ import { getBand } from "@/utils/bands";
 const LOGO_URL = "https://customer-assets.emergentagent.com/job_radio-memory/artifacts/gnvrdwzf_1000015588.png";
 
 const MODES = ["FM", "SSB", "CW", "FT8", "FT4", "DMR", "C4FM", "D-STAR", "AM", "RTTY", "PSK31", "SSTV"];
-const BANDS = ["2m", "70cm", "20m", "40m", "80m", "10m", "15m", "6m", "160m", "30m", "17m", "12m", "4m", "23cm"];
+const BANDS = ["2m", "70cm", "11m", "10m", "20m", "40m", "80m", "15m", "6m", "160m", "30m", "17m", "12m", "4m", "60m", "23cm", "33cm", "1.25m", "13cm"];
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
