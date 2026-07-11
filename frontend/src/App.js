@@ -1446,13 +1446,8 @@ function Dashboard() {
             {stats.total_qsos > 0 && (
               <button onClick={async () => {
                 try {
-                  const token = localStorage.getItem("qso_token");
-                  const res = await fetch(`${API}/qso/export/adif`, {
-                    credentials: "include",
-                    headers: token ? { Authorization: `Bearer ${token}` } : {}
-                  });
-                  if (!res.ok) throw new Error("Erreur export");
-                  const blob = await res.blob();
+                  const res = await axios.get(`${API}/qso/export/adif`, { responseType: "blob" });
+                  const blob = new Blob([res.data], { type: "application/octet-stream" });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
@@ -1461,6 +1456,7 @@ function Dashboard() {
                   document.body.appendChild(a);
                   a.click();
                   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+                  toast.success("Fichier ADIF téléchargé");
                 } catch {
                   toast.error("Erreur export ADIF — reconnectez-vous si le problème persiste");
                 }
