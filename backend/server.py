@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, UploadFile, File
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
@@ -527,6 +527,105 @@ async def export_adif(request: Request, token: Optional[str] = None):
         media_type="application/octet-stream",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
+
+# Import ADIF
+import re
+
+def parse_adif(content: str) -> list:
+    """Parse ADIF content and return list of QSO dicts."""
+    # Skip header (everything before <EOH>)
+    eoh_match = re.search(r'<EOH>', content, re.IGNORECASE)
+    if eoh_match:
+        content = content[eoh_match.end():]
+
+    qsos = []
+    # Split by <EOR>
+    records = re.split(r'<EOR>', content, flags=re.IGNORECASE)
+
+    for record in records:
+        record = record.strip()
+        if not record:
+            continue
+        # Extract fields: <FIELDNAME:LENGTH>VALUE
+        fields = {}
+        for match in re.finditer(r'<(\w+):(\d+)(?::\w+)?>(.*?)(?=<\w+:|\Z)', record, re.DOTALL | re.IGNORECASE):
+            name = match.group(1).upper()
+            length = int(match.group(2))
+            value = match.group(3)[:length].strip()
+            fields[name] = value
+
+        if not fields.get("CALL"):
+            continue
+
+        # Convert date YYYYMMDD → YYYY-MM-DD
+        date_str = fields.get("QSO_DATE", "")
+        if len(date_str) == 8:
+            date_str = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
+        elif not date_str:
+            date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        # Convert time HHMM → HH:MM
+        time_str = fields.get("TIME_ON", "")
+        if len(time_str) >= 4:
+            time_str = f"{time_str[:2]}:{time_str[2:4]}"
+
+        # Frequency
+        freq = 0.0
+        try:
+            freq = float(fields.get("FREQ", "0"))
+        except ValueError:
+            pass
+
+        qsos.append({
+            "callsign": fields.get("CALL", "").upper(),
+            "date": date_str,
+            "time_utc": time_str,
+            "frequency": freq,
+            "mode": fields.get("MODE", ""),
+            "name": fields.get("NAME", ""),
+            "comment": fields.get("COMMENT", fields.get("NOTES", "")),
+        })
+
+    return qsos
+
+@api_router.post("/qso/import/adif")
+async def import_adif(request: Request, file: UploadFile = File(...)):
+    user = await get_current_user(request)
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        text = content.decode("latin-1")
+
+    qsos = parse_adif(text)
+    if not qsos:
+        raise HTTPException(status_code=400, detail="Aucun QSO trouvé dans le fichier ADIF")
+
+    imported = 0
+    skipped = 0
+    for qso in qsos:
+        if not qso["callsign"] or qso["frequency"] <= 0:
+            skipped += 1
+            continue
+
+        doc = {
+            "id": str(uuid.uuid4()),
+            "callsign": qso["callsign"],
+            "date": qso["date"],
+            "time_utc": qso["time_utc"],
+            "frequency": qso["frequency"],
+            "mode": qso["mode"],
+            "name": qso["name"],
+            "comment": qso["comment"],
+            "owner_id": user["id"],
+            "owner_callsign": user["callsign"],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.qsos.insert_one(doc)
+        imported += 1
+
+    return {"imported": imported, "skipped": skipped, "total": len(qsos)}
 
 def freq_to_band(freq_mhz):
     if not freq_mhz:

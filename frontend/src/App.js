@@ -1470,6 +1470,39 @@ function Dashboard() {
               </button>
             )}
 
+            {/* Import ADIF */}
+            <div className="mt-3 mb-20">
+              <input type="file" accept=".adi,.adif,.ADI,.ADIF" id="adif-import-input" className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const formData = new FormData();
+                  formData.append("file", file);
+                  try {
+                    const token = localStorage.getItem("qso_token");
+                    const res = await fetch(`${API}/qso/import/adif`, {
+                      method: "POST",
+                      credentials: "include",
+                      headers: token ? { Authorization: `Bearer ${token}` } : {},
+                      body: formData,
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                      toast.success(`${data.imported} QSO(s) importé(s)${data.skipped ? `, ${data.skipped} ignoré(s)` : ""}`);
+                      fetchGrouped();
+                      fetchStats();
+                    } else {
+                      toast.error(data.detail || "Erreur import");
+                    }
+                  } catch { toast.error("Erreur import ADIF"); }
+                  e.target.value = "";
+                }} />
+              <button onClick={() => document.getElementById("adif-import-input")?.click()} data-testid="import-adif-btn"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#121212] hover:bg-[#1a1a1a] text-zinc-300 border border-zinc-800 font-mono text-xs uppercase tracking-wider transition-all duration-200">
+                <ArrowLeft size={16} className="text-amber-500 rotate-90" /> Importer un fichier ADIF
+              </button>
+            </div>
+
             {/* Floating add button (mobile) */}
             <button onClick={() => { setAddCallsign(""); setShowAddModal(true); }} data-testid="fab-add-qso"
               className="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 hover:bg-amber-600 text-black flex items-center justify-center shadow-lg shadow-amber-500/20 transition-all duration-200 z-20">
