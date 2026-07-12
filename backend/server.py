@@ -652,6 +652,44 @@ async def import_adif(request: Request, file: UploadFile = File(...)):
 
     return {"imported": imported, "skipped": skipped, "total": len(qsos)}
 
+# Alternative import: accept ADIF content as JSON text (no multipart needed)
+class AdifTextImport(BaseModel):
+    content: str
+
+@api_router.post("/qso/import/adif-text")
+async def import_adif_text(data: AdifTextImport, request: Request):
+    logger.info("=== ADIF TEXT IMPORT called ===")
+    user = await get_current_user(request)
+    qsos = parse_adif(data.content)
+    if not qsos:
+        raise HTTPException(status_code=400, detail="Aucun QSO trouvé dans le contenu ADIF")
+    imported = 0
+    skipped = 0
+    for qso in qsos:
+        if not qso["callsign"] or qso["frequency"] <= 0:
+            skipped += 1
+            continue
+        doc = {
+            "id": str(uuid.uuid4()),
+            "callsign": qso["callsign"],
+            "date": qso["date"],
+            "time_utc": qso["time_utc"],
+            "frequency": qso["frequency"],
+            "mode": qso["mode"],
+            "name": qso["name"],
+            "comment": qso["comment"],
+            "qsl_sent": qso.get("qsl_sent", False),
+            "qsl_received": qso.get("qsl_received", False),
+            "rst_sent": qso.get("rst_sent", ""),
+            "rst_received": qso.get("rst_received", ""),
+            "owner_id": user["id"],
+            "owner_callsign": user["callsign"],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.qsos.insert_one(doc)
+        imported += 1
+    return {"imported": imported, "skipped": skipped, "total": len(qsos)}
+
 def freq_to_band(freq_mhz):
     if not freq_mhz:
         return None

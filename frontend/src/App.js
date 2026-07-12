@@ -1611,13 +1611,11 @@ function Dashboard() {
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  const fd = new FormData();
-                  fd.append("file", file);
-                  const importUrl = `${API}/qso/import/adif`;
                   try {
-                    const { data } = await axios.post(importUrl, fd, {
-                      headers: { "Content-Type": "multipart/form-data" }
-                    });
+                    // Read file content as text on client side
+                    const text = await file.text();
+                    // Send as JSON (avoids multipart/python-multipart issues)
+                    const { data } = await axios.post(`${API}/qso/import/adif-text`, { content: text });
                     toast.success(`${data.imported} QSO(s) importé(s)${data.skipped ? `, ${data.skipped} ignoré(s)` : ""}`);
                     fetchGrouped();
                     fetchStats();
@@ -1625,8 +1623,7 @@ function Dashboard() {
                     const status = err.response?.status || "réseau";
                     const detail = err.response?.data?.detail;
                     const msg = typeof detail === "string" ? detail : JSON.stringify(err.response?.data || err.message);
-                    toast.error(`Erreur ${status} — POST ${importUrl.replace(BACKEND_URL, "")} — ${msg}`);
-                    console.error("Import ADIF error:", { status, url: importUrl, data: err.response?.data, message: err.message });
+                    toast.error(`Erreur ${status} — ${msg}`);
                   }
                   e.target.value = "";
                 }} />
