@@ -34,7 +34,7 @@ import { exportAdifFile } from "@/utils/exportAdif";
 
 const LOGO_URL = "https://customer-assets.emergentagent.com/job_radio-memory/artifacts/gnvrdwzf_1000015588.png";
 
-const MODES = ["FM", "SSB", "CW", "FT8", "FT4", "DMR", "C4FM", "D-STAR", "AM", "RTTY", "PSK31", "SSTV"];
+const MODES = ["FM", "SSB", "CW", "FT8", "FT4", "DMR", "C4FM", "D-STAR", "USB", "LSB", "AM", "RTTY", "PSK31", "SSTV"];
 const BANDS = ["2m", "70cm", "11m", "10m", "20m", "40m", "80m", "15m", "6m", "160m", "30m", "17m", "12m", "4m", "60m", "23cm", "33cm", "1.25m", "13cm"];
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -424,6 +424,8 @@ function AddQSOModal({ callsign, prefillName, onClose, onAdded }) {
     mode: "",
     name: prefillName || "",
     comment: "",
+    qsl_sent: false,
+    qsl_received: false,
   });
   const [dupInfo, setDupInfo] = useState(null);
 
@@ -538,6 +540,18 @@ function AddQSOModal({ callsign, prefillName, onClose, onAdded }) {
               rows={2}
               className="flex w-full bg-[#09090b] border border-zinc-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-zinc-100 rounded-none font-mono text-sm px-3 py-2 placeholder:text-zinc-600 resize-none" />
           </div>
+          <div className="flex gap-4 py-1">
+            <label className="flex items-center gap-2 cursor-pointer" data-testid="qsl-sent-toggle">
+              <input type="checkbox" checked={formData.qsl_sent} onChange={(e) => setFormData({ ...formData, qsl_sent: e.target.checked })}
+                className="w-4 h-4 accent-amber-500 bg-[#09090b] border-zinc-700 rounded-none" />
+              <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider">QSL envoyée</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer" data-testid="qsl-received-toggle">
+              <input type="checkbox" checked={formData.qsl_received} onChange={(e) => setFormData({ ...formData, qsl_received: e.target.checked })}
+                className="w-4 h-4 accent-amber-500 bg-[#09090b] border-zinc-700 rounded-none" />
+              <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider">QSL reçue</span>
+            </label>
+          </div>
           <Button data-testid="qso-submit-button" type="submit"
             className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none h-12 transition-all duration-200 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]">
             Enregistrer QSO
@@ -590,7 +604,7 @@ function ContactDetail({ callsign, onBack }) {
   const [nameValue, setNameValue] = useState("");
   const [editingModeId, setEditingModeId] = useState(null);
   const [editingQsoId, setEditingQsoId] = useState(null);
-  const [editQsoData, setEditQsoData] = useState({ date: "", time_utc: "", frequency: "", mode: "", name: "", comment: "" });
+  const [editQsoData, setEditQsoData] = useState({ date: "", time_utc: "", frequency: "", mode: "", name: "", comment: "", qsl_sent: false, qsl_received: false });
 
   const startEditName = () => { setNameValue(data?.name || ""); setEditingName(true); };
   const saveContactName = async () => {
@@ -613,7 +627,7 @@ function ContactDetail({ callsign, onBack }) {
 
   const startEditQso = (qso) => {
     setEditingQsoId(qso.id);
-    setEditQsoData({ date: qso.date, time_utc: qso.time_utc || "", frequency: qso.frequency.toString(), mode: qso.mode || "", name: qso.name || "", comment: qso.comment || "" });
+    setEditQsoData({ date: qso.date, time_utc: qso.time_utc || "", frequency: qso.frequency.toString(), mode: qso.mode || "", name: qso.name || "", comment: qso.comment || "", qsl_sent: !!qso.qsl_sent, qsl_received: !!qso.qsl_received });
   };
 
   const saveEditQso = async (id) => {
@@ -742,6 +756,18 @@ function ContactDetail({ callsign, onBack }) {
                         <Input value={editQsoData.comment} onChange={(e) => setEditQsoData({ ...editQsoData, comment: e.target.value })}
                           placeholder="Optionnel" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm h-8 mt-1" />
                       </div>
+                      <div className="flex gap-4 py-1">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={editQsoData.qsl_sent} onChange={(e) => setEditQsoData({ ...editQsoData, qsl_sent: e.target.checked })}
+                            className="w-3.5 h-3.5 accent-amber-500" />
+                          <span className="text-[10px] font-mono text-zinc-400 uppercase">QSL envoyée</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={editQsoData.qsl_received} onChange={(e) => setEditQsoData({ ...editQsoData, qsl_received: e.target.checked })}
+                            className="w-3.5 h-3.5 accent-amber-500" />
+                          <span className="text-[10px] font-mono text-zinc-400 uppercase">QSL reçue</span>
+                        </label>
+                      </div>
                       <div className="flex gap-2">
                         <button onClick={() => saveEditQso(qso.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-mono uppercase bg-amber-500 text-black font-bold" data-testid="save-qso-edit-btn">
                           <Check size={14} /> Enregistrer
@@ -785,6 +811,12 @@ function ContactDetail({ callsign, onBack }) {
                       {qso.comment && (
                         <div className="mt-2 text-xs text-zinc-400 font-mono italic border-l-2 border-zinc-700 pl-3" data-testid="history-comment">
                           {qso.comment}
+                        </div>
+                      )}
+                      {(qso.qsl_sent || qso.qsl_received) && (
+                        <div className="mt-1 flex gap-3 text-[10px] font-mono uppercase tracking-wider">
+                          {qso.qsl_sent && <span className="text-green-500">QSL envoyée</span>}
+                          {qso.qsl_received && <span className="text-green-500">QSL reçue</span>}
                         </div>
                       )}
                     </>
@@ -1522,6 +1554,8 @@ function Dashboard() {
                     if (qso.name) rec += af("NAME", qso.name);
                     if (qso.comment) rec += af("COMMENT", qso.comment);
                     rec += af("MY_CALLSIGN", user?.callsign || "");
+                    if (qso.qsl_sent) rec += af("QSL_SENT", "Y");
+                    if (qso.qsl_received) rec += af("QSL_RCVD", "Y");
                     rec += "<EOR>\n";
                     adif += rec + "\n";
                   }
@@ -1549,18 +1583,22 @@ function Dashboard() {
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  const formData = new FormData();
-                  formData.append("file", file);
+                  const fd = new FormData();
+                  fd.append("file", file);
+                  const importUrl = `${API}/qso/import/adif`;
                   try {
-                    const { data } = await axios.post(`${API}/qso/import/adif`, formData, {
+                    const { data } = await axios.post(importUrl, fd, {
                       headers: { "Content-Type": "multipart/form-data" }
                     });
                     toast.success(`${data.imported} QSO(s) importé(s)${data.skipped ? `, ${data.skipped} ignoré(s)` : ""}`);
                     fetchGrouped();
                     fetchStats();
                   } catch (err) {
-                    const msg = err.response?.data?.detail || "Erreur import ADIF";
-                    toast.error(typeof msg === "string" ? msg : "Erreur import ADIF");
+                    const status = err.response?.status || "réseau";
+                    const detail = err.response?.data?.detail;
+                    const msg = typeof detail === "string" ? detail : JSON.stringify(err.response?.data || err.message);
+                    toast.error(`Erreur ${status} — POST ${importUrl.replace(BACKEND_URL, "")} — ${msg}`);
+                    console.error("Import ADIF error:", { status, url: importUrl, data: err.response?.data, message: err.message });
                   }
                   e.target.value = "";
                 }} />

@@ -326,6 +326,8 @@ class QSOCreate(BaseModel):
     name: str = Field("", max_length=100)
     mode: str = Field("", max_length=20)
     comment: Optional[str] = ""
+    qsl_sent: bool = False
+    qsl_received: bool = False
 
 class QSOUpdate(BaseModel):
     callsign: Optional[str] = None
@@ -335,6 +337,8 @@ class QSOUpdate(BaseModel):
     name: Optional[str] = None
     mode: Optional[str] = None
     comment: Optional[str] = None
+    qsl_sent: Optional[bool] = None
+    qsl_received: Optional[bool] = None
 
 # === QSO Endpoints (Protected) ===
 @api_router.post("/qso")
@@ -351,6 +355,8 @@ async def create_qso(qso_data: QSOCreate, request: Request):
         "name": qso_data.name,
         "mode": qso_data.mode.upper() if qso_data.mode else "",
         "comment": qso_data.comment or "",
+        "qsl_sent": qso_data.qsl_sent,
+        "qsl_received": qso_data.qsl_received,
         "owner_id": user["id"],
         "owner_callsign": user["callsign"],
         "created_at": datetime.now(timezone.utc).isoformat()
@@ -516,6 +522,8 @@ async def export_adif(request: Request, token: Optional[str] = None):
             record += adif_field("COMMENT", comment)
 
         record += adif_field("MY_CALLSIGN", user.get("callsign", ""))
+        if qso.get("qsl_sent"): record += adif_field("QSL_SENT", "Y")
+        if qso.get("qsl_received"): record += adif_field("QSL_RCVD", "Y")
         record += "<EOR>\n"
         lines.append(record)
 
@@ -584,12 +592,15 @@ def parse_adif(content: str) -> list:
             "mode": fields.get("MODE", ""),
             "name": fields.get("NAME", ""),
             "comment": fields.get("COMMENT", fields.get("NOTES", "")),
+            "qsl_sent": fields.get("QSL_SENT", "") == "Y",
+            "qsl_received": fields.get("QSL_RCVD", "") == "Y",
         })
 
     return qsos
 
 @api_router.post("/qso/import/adif")
 async def import_adif(request: Request, file: UploadFile = File(...)):
+    logger.info(f"=== ADIF IMPORT called, filename: {file.filename}, content_type: {file.content_type} ===")
     user = await get_current_user(request)
 
     content = await file.read()
@@ -618,6 +629,8 @@ async def import_adif(request: Request, file: UploadFile = File(...)):
             "mode": qso["mode"],
             "name": qso["name"],
             "comment": qso["comment"],
+            "qsl_sent": qso.get("qsl_sent", False),
+            "qsl_received": qso.get("qsl_received", False),
             "owner_id": user["id"],
             "owner_callsign": user["callsign"],
             "created_at": datetime.now(timezone.utc).isoformat()
@@ -693,7 +706,7 @@ async def delete_qso(qso_id: str, request: Request):
 # Root
 @api_router.get("/")
 async def root():
-    return {"message": "QSO Logbook API"}
+    return {"message": "QSO Pocket API", "version": "1.0", "routes": ["/api/qso/import/adif", "/api/qso/export/adif"]}
 
 # === Admin Endpoints ===
 async def require_admin(request: Request) -> dict:
