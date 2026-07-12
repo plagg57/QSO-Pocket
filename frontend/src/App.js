@@ -1444,17 +1444,46 @@ function Dashboard() {
 
             {/* Export ADIF - en bas */}
             {stats.total_qsos > 0 && (
-              <button onClick={() => {
-                const token = localStorage.getItem("qso_token");
-                if (!token) { toast.error("Reconnectez-vous pour exporter"); return; }
-                const a = document.createElement("a");
-                a.href = `${API}/qso/export/adif?token=${encodeURIComponent(token)}`;
-                a.download = "qso_log.adi";
-                a.style.display = "none";
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                toast.success("Téléchargement lancé");
+              <button onClick={async () => {
+                try {
+                  // Fetch all QSOs via axios (auth works)
+                  const res = await axios.get(`${API}/qso`);
+                  const qsos = res.data;
+                  
+                  // Build ADIF content in browser
+                  let adif = "ADIF Export from QSO Pocket\n";
+                  adif += "<ADIF_VER:5>3.1.4\n<PROGRAMID:10>QSO_POCKET\n<PROGRAMVERSION:3>1.0\n<EOH>\n\n";
+                  
+                  for (const qso of qsos) {
+                    const af = (name, val) => { if (!val) return ""; const v = String(val); return `<${name}:${v.length}>${v}`; };
+                    let rec = "";
+                    rec += af("CALL", qso.callsign);
+                    if (qso.date) rec += af("QSO_DATE", qso.date.replace(/-/g, ""));
+                    if (qso.time_utc) rec += af("TIME_ON", qso.time_utc.replace(":", ""));
+                    if (qso.frequency) rec += af("FREQ", qso.frequency.toFixed(6));
+                    const band = getBand(qso.frequency);
+                    if (band) rec += af("BAND", band);
+                    if (qso.mode) rec += af("MODE", qso.mode);
+                    if (qso.name) rec += af("NAME", qso.name);
+                    if (qso.comment) rec += af("COMMENT", qso.comment);
+                    rec += af("MY_CALLSIGN", user?.callsign || "");
+                    rec += "<EOR>\n";
+                    adif += rec + "\n";
+                  }
+                  
+                  // Download as file
+                  const blob = new Blob([adif], { type: "text/plain" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `${user?.callsign || "qso"}_log.adi`;
+                  document.body.appendChild(a);
+                  a.click();
+                  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+                  toast.success(`${qsos.length} QSOs exportés`);
+                } catch {
+                  toast.error("Erreur export ADIF");
+                }
               }} data-testid="export-adif-btn"
                 className="w-full mt-6 mb-20 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#121212] hover:bg-[#1a1a1a] text-zinc-300 border border-zinc-800 font-mono text-xs uppercase tracking-wider transition-all duration-200">
                 <Export size={16} className="text-amber-500" /> Exporter en ADIF
