@@ -83,9 +83,12 @@ function AuthProvider({ children }) {
 
     // Try to verify token with retry for cold start
     let retryCount = 0;
-    const maxRetries = 5;
+    const maxRetries = 20;
 
     const tryAuth = () => {
+      // Progressive delay: 3s, 3s, 5s, 5s, 5s, then 7s
+      const delay = retryCount < 2 ? 3000 : retryCount < 5 ? 5000 : 7000;
+      
       axios.get(`${API}/auth/me`)
         .then(res => {
           setUser(res.data);
@@ -94,20 +97,16 @@ function AuthProvider({ children }) {
         })
         .catch(err => {
           const status = err.response?.status;
-          // Only logout on real 401 (token invalid/expired)
           if (status === 401 || status === 403) {
             localStorage.removeItem("qso_token");
             setUser(false);
             setServerWaking(false);
             setChecking(false);
           } else if (retryCount < maxRetries) {
-            // Network error, 502, 503, 504 = server waking up
             retryCount++;
             setServerWaking(true);
-            setTimeout(tryAuth, 3000);
+            setTimeout(tryAuth, delay);
           } else {
-            // After max retries, keep token but show as logged in from cache
-            // Try to decode token for basic user info
             try {
               const payload = JSON.parse(atob(token.split(".")[1]));
               setUser({ id: payload.sub, email: payload.email || "", callsign: "...", role: "user" });
