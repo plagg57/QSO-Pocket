@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { getFlagUrl, getCountryName } from "@/utils/callsignFlags";
 import { getBand } from "@/utils/bands";
+import { exportAdifFile } from "@/utils/exportAdif";
 
 const LOGO_URL = "https://customer-assets.emergentagent.com/job_radio-memory/artifacts/gnvrdwzf_1000015588.png";
 
@@ -1446,11 +1447,9 @@ function Dashboard() {
             {stats.total_qsos > 0 && (
               <button onClick={async () => {
                 try {
-                  // Fetch all QSOs via axios (auth works)
                   const res = await axios.get(`${API}/qso`);
                   const qsos = res.data;
                   
-                  // Build ADIF content in browser
                   let adif = "ADIF Export from QSO Pocket\n";
                   adif += "<ADIF_VER:5>3.1.4\n<PROGRAMID:10>QSO_POCKET\n<PROGRAMVERSION:3>1.0\n<EOH>\n\n";
                   
@@ -1471,16 +1470,14 @@ function Dashboard() {
                     adif += rec + "\n";
                   }
                   
-                  // Download as file
-                  const blob = new Blob([adif], { type: "text/plain" });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `${user?.callsign || "qso"}_log.adi`;
-                  document.body.appendChild(a);
-                  a.click();
-                  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
-                  toast.success(`${qsos.length} QSOs exportés`);
+                  const filename = `${(user?.callsign || "qso").replace("/", "_")}_log.adi`;
+                  const result = await exportAdifFile(adif, filename);
+                  
+                  if (result.success) {
+                    toast.success(`${qsos.length} QSOs exportés — ${result.message}`);
+                  } else {
+                    toast.error(result.message);
+                  }
                 } catch {
                   toast.error("Erreur export ADIF");
                 }
