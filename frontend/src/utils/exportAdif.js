@@ -1,61 +1,68 @@
-import { Capacitor } from "@capacitor/core";
-import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
-import { Share } from "@capacitor/share";
-
 /**
- * Export ADIF file. Uses Capacitor native APIs on Android/iOS,
- * falls back to blob download on web.
- * @param {string} content - ADIF file content
- * @param {string} filename - File name (e.g. "F4MVD_log.adi")
- * @returns {Promise<{success: boolean, message: string}>}
+ * Export ADIF file with multiple fallback strategies:
+ * 1. Capacitor Filesystem + Share (if plugins available)
+ * 2. Web Share API with File (native Android/iOS share sheet)
+ * 3. Blob download (web browser fallback)
  */
 export async function exportAdifFile(content, filename) {
-  const isNative = Capacitor.isNativePlatform();
-
-  if (isNative) {
-    // === Native (Android / iOS) ===
-    try {
+  
+  // === Strategy 1: Capacitor plugins ===
+  try {
+    const { Capacitor } = await import("@capacitor/core");
+    if (Capacitor.isNativePlatform()) {
+      const { Filesystem, Directory, Encoding } = await import("@capacitor/filesystem");
+      const { Share } = await import("@capacitor/share");
+      
       const result = await Filesystem.writeFile({
         path: filename,
         data: content,
         directory: Directory.Cache,
         encoding: Encoding.UTF8,
       });
-
-      const fileUri = result.uri;
-
+      
       await Share.share({
         title: "Export ADIF",
-        text: `Fichier ${filename}`,
-        url: fileUri,
+        url: result.uri,
         dialogTitle: "Enregistrer ou partager le fichier ADIF",
       });
-
+      
       return { success: true, message: "Fichier partagé" };
-    } catch (err) {
-      const msg = err?.message || String(err);
-      if (msg.includes("cancel") || msg.includes("dismiss")) {
-        return { success: true, message: "Partage annulé" };
+    }
+  } catch (e) {
+    console.log("Capacitor export failed, trying Web Share API:", e?.message);
+  }
+
+  // === Strategy 2: Web Share API with File (works on Android Chrome/WebView) ===
+  try {
+    if (navigator.share && navigator.canShare) {
+      const file = new File([content], filename, { type: "application/octet-stream" });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: "Export ADIF",
+          files: [file],
+        });
+        return { success: true, message: "Fichier partagé" };
       }
-      return { success: false, message: `Erreur: ${msg}` };
     }
-  } else {
-    // === Web (navigateur) ===
-    try {
-      const blob = new Blob([content], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 500);
-      return { success: true, message: "Téléchargement lancé" };
-    } catch (err) {
-      return { success: false, message: `Erreur: ${err?.message || String(err)}` };
+  } catch (e) {
+    if (e?.name === "AbortError") {
+      return { success: true, message: "Partage annulé" };
     }
+    console.log("Web Share API failed, trying blob download:", e?.message);
+  }
+
+  // === Strategy 3: Blob download (web browser) ===
+  try {
+    const blob = new Blob([content], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+    return { success: true, message: "Téléchargement lancé" };
+  } catch (e) {
+    return { success: false, message: `Erreur: ${e?.message || String(e)}` };
   }
 }
