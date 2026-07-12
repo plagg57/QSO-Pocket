@@ -426,6 +426,8 @@ function AddQSOModal({ callsign, prefillName, onClose, onAdded }) {
     comment: "",
     qsl_sent: false,
     qsl_received: false,
+    rst_sent: "",
+    rst_received: "",
   });
   const [dupInfo, setDupInfo] = useState(null);
 
@@ -533,6 +535,18 @@ function AddQSOModal({ callsign, prefillName, onClose, onAdded }) {
             <Input data-testid="qso-name-input" type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Nom (optionnel)" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">RST envoyé</Label>
+              <Input data-testid="qso-rst-sent-input" value={formData.rst_sent} onChange={(e) => setFormData({ ...formData, rst_sent: e.target.value })}
+                placeholder="59" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">RST reçu</Label>
+              <Input data-testid="qso-rst-received-input" value={formData.rst_received} onChange={(e) => setFormData({ ...formData, rst_received: e.target.value })}
+                placeholder="59" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+            </div>
+          </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Pencil size={14} /> Commentaire</Label>
             <textarea data-testid="qso-comment-input" value={formData.comment} onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
@@ -604,7 +618,7 @@ function ContactDetail({ callsign, onBack }) {
   const [nameValue, setNameValue] = useState("");
   const [editingModeId, setEditingModeId] = useState(null);
   const [editingQsoId, setEditingQsoId] = useState(null);
-  const [editQsoData, setEditQsoData] = useState({ date: "", time_utc: "", frequency: "", mode: "", name: "", comment: "", qsl_sent: false, qsl_received: false });
+  const [editQsoData, setEditQsoData] = useState({ date: "", time_utc: "", frequency: "", mode: "", name: "", comment: "", qsl_sent: false, qsl_received: false, rst_sent: "", rst_received: "" });
 
   const startEditName = () => { setNameValue(data?.name || ""); setEditingName(true); };
   const saveContactName = async () => {
@@ -627,7 +641,7 @@ function ContactDetail({ callsign, onBack }) {
 
   const startEditQso = (qso) => {
     setEditingQsoId(qso.id);
-    setEditQsoData({ date: qso.date, time_utc: qso.time_utc || "", frequency: qso.frequency.toString(), mode: qso.mode || "", name: qso.name || "", comment: qso.comment || "", qsl_sent: !!qso.qsl_sent, qsl_received: !!qso.qsl_received });
+    setEditQsoData({ date: qso.date, time_utc: qso.time_utc || "", frequency: qso.frequency.toString(), mode: qso.mode || "", name: qso.name || "", comment: qso.comment || "", qsl_sent: !!qso.qsl_sent, qsl_received: !!qso.qsl_received, rst_sent: qso.rst_sent || "", rst_received: qso.rst_received || "" });
   };
 
   const saveEditQso = async (id) => {
@@ -751,6 +765,18 @@ function ContactDetail({ callsign, onBack }) {
                           ))}
                         </div>
                       </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <span className="text-zinc-500 text-xs font-mono">RST envoyé</span>
+                          <Input value={editQsoData.rst_sent} onChange={(e) => setEditQsoData({ ...editQsoData, rst_sent: e.target.value })}
+                            placeholder="59" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm h-8 mt-1" />
+                        </div>
+                        <div>
+                          <span className="text-zinc-500 text-xs font-mono">RST reçu</span>
+                          <Input value={editQsoData.rst_received} onChange={(e) => setEditQsoData({ ...editQsoData, rst_received: e.target.value })}
+                            placeholder="59" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm h-8 mt-1" />
+                        </div>
+                      </div>
                       <div>
                         <span className="text-zinc-500 text-xs font-mono">Commentaire</span>
                         <Input value={editQsoData.comment} onChange={(e) => setEditQsoData({ ...editQsoData, comment: e.target.value })}
@@ -795,8 +821,8 @@ function ContactDetail({ callsign, onBack }) {
                             <div className="text-zinc-200">{qso.mode || "—"}</div>
                           </div>
                           <div>
-                            <span className="text-zinc-500 text-xs">Nom</span>
-                            <div className="text-zinc-300">{qso.name || "—"}</div>
+                            <span className="text-zinc-500 text-xs">RST</span>
+                            <div className="text-zinc-200">{qso.rst_sent || "—"} / {qso.rst_received || "—"}</div>
                           </div>
                         </div>
                         <div className="flex flex-col gap-1 ml-2 shrink-0">
@@ -1556,6 +1582,8 @@ function Dashboard() {
                     rec += af("MY_CALLSIGN", user?.callsign || "");
                     if (qso.qsl_sent) rec += af("QSL_SENT", "Y");
                     if (qso.qsl_received) rec += af("QSL_RCVD", "Y");
+                    if (qso.rst_sent) rec += af("RST_SENT", qso.rst_sent);
+                    if (qso.rst_received) rec += af("RST_RCVD", qso.rst_received);
                     rec += "<EOR>\n";
                     adif += rec + "\n";
                   }

@@ -328,6 +328,8 @@ class QSOCreate(BaseModel):
     comment: Optional[str] = ""
     qsl_sent: bool = False
     qsl_received: bool = False
+    rst_sent: str = Field("", max_length=10)
+    rst_received: str = Field("", max_length=10)
 
 class QSOUpdate(BaseModel):
     callsign: Optional[str] = None
@@ -339,6 +341,8 @@ class QSOUpdate(BaseModel):
     comment: Optional[str] = None
     qsl_sent: Optional[bool] = None
     qsl_received: Optional[bool] = None
+    rst_sent: Optional[str] = None
+    rst_received: Optional[str] = None
 
 # === QSO Endpoints (Protected) ===
 @api_router.post("/qso")
@@ -357,6 +361,8 @@ async def create_qso(qso_data: QSOCreate, request: Request):
         "comment": qso_data.comment or "",
         "qsl_sent": qso_data.qsl_sent,
         "qsl_received": qso_data.qsl_received,
+        "rst_sent": qso_data.rst_sent or "",
+        "rst_received": qso_data.rst_received or "",
         "owner_id": user["id"],
         "owner_callsign": user["callsign"],
         "created_at": datetime.now(timezone.utc).isoformat()
@@ -524,6 +530,8 @@ async def export_adif(request: Request, token: Optional[str] = None):
         record += adif_field("MY_CALLSIGN", user.get("callsign", ""))
         if qso.get("qsl_sent"): record += adif_field("QSL_SENT", "Y")
         if qso.get("qsl_received"): record += adif_field("QSL_RCVD", "Y")
+        if qso.get("rst_sent"): record += adif_field("RST_SENT", qso["rst_sent"])
+        if qso.get("rst_received"): record += adif_field("RST_RCVD", qso["rst_received"])
         record += "<EOR>\n"
         lines.append(record)
 
@@ -594,6 +602,8 @@ def parse_adif(content: str) -> list:
             "comment": fields.get("COMMENT", fields.get("NOTES", "")),
             "qsl_sent": fields.get("QSL_SENT", "") == "Y",
             "qsl_received": fields.get("QSL_RCVD", "") == "Y",
+            "rst_sent": fields.get("RST_SENT", ""),
+            "rst_received": fields.get("RST_RCVD", ""),
         })
 
     return qsos
@@ -631,6 +641,8 @@ async def import_adif(request: Request, file: UploadFile = File(...)):
             "comment": qso["comment"],
             "qsl_sent": qso.get("qsl_sent", False),
             "qsl_received": qso.get("qsl_received", False),
+            "rst_sent": qso.get("rst_sent", ""),
+            "rst_received": qso.get("rst_received", ""),
             "owner_id": user["id"],
             "owner_callsign": user["callsign"],
             "created_at": datetime.now(timezone.utc).isoformat()
