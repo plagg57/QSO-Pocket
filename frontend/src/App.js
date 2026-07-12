@@ -1496,22 +1496,16 @@ function Dashboard() {
                   const formData = new FormData();
                   formData.append("file", file);
                   try {
-                    const token = localStorage.getItem("qso_token");
-                    const res = await fetch(`${API}/qso/import/adif`, {
-                      method: "POST",
-                      credentials: "include",
-                      headers: token ? { Authorization: `Bearer ${token}` } : {},
-                      body: formData,
+                    const { data } = await axios.post(`${API}/qso/import/adif`, formData, {
+                      headers: { "Content-Type": "multipart/form-data" }
                     });
-                    const data = await res.json();
-                    if (res.ok) {
-                      toast.success(`${data.imported} QSO(s) importé(s)${data.skipped ? `, ${data.skipped} ignoré(s)` : ""}`);
-                      fetchGrouped();
-                      fetchStats();
-                    } else {
-                      toast.error(data.detail || "Erreur import");
-                    }
-                  } catch { toast.error("Erreur import ADIF"); }
+                    toast.success(`${data.imported} QSO(s) importé(s)${data.skipped ? `, ${data.skipped} ignoré(s)` : ""}`);
+                    fetchGrouped();
+                    fetchStats();
+                  } catch (err) {
+                    const msg = err.response?.data?.detail || "Erreur import ADIF";
+                    toast.error(typeof msg === "string" ? msg : "Erreur import ADIF");
+                  }
                   e.target.value = "";
                 }} />
               <button onClick={() => document.getElementById("adif-import-input")?.click()} data-testid="import-adif-btn"
