@@ -1444,22 +1444,17 @@ function Dashboard() {
 
             {/* Export ADIF - en bas */}
             {stats.total_qsos > 0 && (
-              <button onClick={async () => {
-                try {
-                  const res = await axios.get(`${API}/qso/export/adif`, { responseType: "blob" });
-                  const blob = new Blob([res.data], { type: "application/octet-stream" });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = "qso_log.adi";
-                  a.style.display = "none";
-                  document.body.appendChild(a);
-                  a.click();
-                  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-                  toast.success("Fichier ADIF téléchargé");
-                } catch {
-                  toast.error("Erreur export ADIF — reconnectez-vous si le problème persiste");
-                }
+              <button onClick={() => {
+                const token = localStorage.getItem("qso_token");
+                if (!token) { toast.error("Reconnectez-vous pour exporter"); return; }
+                const a = document.createElement("a");
+                a.href = `${API}/qso/export/adif?token=${encodeURIComponent(token)}`;
+                a.download = "qso_log.adi";
+                a.style.display = "none";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                toast.success("Téléchargement lancé");
               }} data-testid="export-adif-btn"
                 className="w-full mt-6 mb-20 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#121212] hover:bg-[#1a1a1a] text-zinc-300 border border-zinc-800 font-mono text-xs uppercase tracking-wider transition-all duration-200">
                 <Export size={16} className="text-amber-500" /> Exporter en ADIF
