@@ -41,7 +41,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 axios.defaults.withCredentials = true;
 
-// Intercept requests to add token header as fallback for mobile
+// Intercept requests to add token header
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem("qso_token");
   if (token && !config.headers.Authorization) {
@@ -62,32 +62,89 @@ function formatApiError(detail) {
 }
 
 function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(null); // null = checking, false = not auth, object = authenticated
   const [checking, setChecking] = useState(true);
+  const [serverWaking, setServerWaking] = useState(false);
 
   useEffect(() => {
-    axios.get(`${API}/auth/me`)
-      .then(res => { setUser(res.data); setChecking(false); })
-      .catch(() => { setUser(false); setChecking(false); });
+    const token = localStorage.getItem("qso_token");
+    // If explicitly logged out (flag set), don't try to restore
+    if (localStorage.getItem("qso_logged_out") === "true") {
+      setUser(false);
+      setChecking(false);
+      return;
+    }
+    // If no token at all, user is not authenticated
+    if (!token) {
+      setUser(false);
+      setChecking(false);
+      return;
+    }
+
+    // Try to verify token with retry for cold start
+    let retryCount = 0;
+    const maxRetries = 5;
+
+    const tryAuth = () => {
+      axios.get(`${API}/auth/me`)
+        .then(res => {
+          setUser(res.data);
+          setServerWaking(false);
+          setChecking(false);
+        })
+        .catch(err => {
+          const status = err.response?.status;
+          // Only logout on real 401 (token invalid/expired)
+          if (status === 401 || status === 403) {
+            localStorage.removeItem("qso_token");
+            setUser(false);
+            setServerWaking(false);
+            setChecking(false);
+          } else if (retryCount < maxRetries) {
+            // Network error, 502, 503, 504 = server waking up
+            retryCount++;
+            setServerWaking(true);
+            setTimeout(tryAuth, 3000);
+          } else {
+            // After max retries, keep token but show as logged in from cache
+            // Try to decode token for basic user info
+            try {
+              const payload = JSON.parse(atob(token.split(".")[1]));
+              setUser({ id: payload.sub, email: payload.email || "", callsign: "...", role: "user" });
+            } catch {
+              setUser(false);
+            }
+            setServerWaking(false);
+            setChecking(false);
+          }
+        });
+    };
+    tryAuth();
   }, []);
 
   const login = async (email, password) => {
     const { data } = await axios.post(`${API}/auth/login`, { email, password });
     if (data.access_token) localStorage.setItem("qso_token", data.access_token);
+    localStorage.removeItem("qso_logged_out");
     setUser(data);
   };
   const register = async (email, password, callsign) => {
     const { data } = await axios.post(`${API}/auth/register`, { email, password, callsign });
     if (data.access_token) localStorage.setItem("qso_token", data.access_token);
+    localStorage.removeItem("qso_logged_out");
     setUser(data);
   };
   const logout = async () => {
-    await axios.post(`${API}/auth/logout`);
+    try { await axios.post(`${API}/auth/logout`); } catch {}
+    // Clear everything
     localStorage.removeItem("qso_token");
+    localStorage.setItem("qso_logged_out", "true");
+    sessionStorage.clear();
+    delete axios.defaults.headers.common["Authorization"];
     setUser(false);
   };
 
-  return <AuthContext.Provider value={{ user, checking, login, register, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, checking, serverWaking, login, register, logout }}>{children}</AuthContext.Provider>;
 }
 
 // === Login Page ===
@@ -1555,29 +1612,33 @@ function App() {
 }
 
 function AppContent() {
-  const { user, checking } = useAuth();
+  const { user, checking, serverWaking } = useAuth();
   const [authMode, setAuthMode] = useState("login");
 
-  // Check for reset token in URL
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("token") && window.location.pathname === "/reset-password") {
-      setAuthMode("reset");
-    }
-  }, []);
+  // Check for reset token in URL — must run BEFORE any redirect
+  const urlParams = new URLSearchParams(window.location.search);
+  const resetToken = urlParams.get("token");
+  const isResetPage = window.location.pathname === "/reset-password" || window.location.pathname.includes("reset-password");
 
-  // Always show login page after logout
+  // Always show login after logout
   useEffect(() => {
-    if (user === false) setAuthMode("login");
-  }, [user]);
+    if (user === false && !isResetPage) setAuthMode("login");
+  }, [user, isResetPage]);
 
-  if (checking) {
+  // If reset password link — show it immediately, no auth needed
+  if (isResetPage && resetToken) {
+    return <ResetPasswordPage token={resetToken} onDone={() => { window.history.replaceState({}, "", "/"); setAuthMode("login"); window.location.reload(); }} />;
+  }
+
+  if (checking || serverWaking) {
     return (
       <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
         <div className="radio-bg"></div>
         <div className="relative z-10 text-center">
           <div className="inline-block w-4 h-6 bg-amber-500 animate-pulse"></div>
-          <p className="mt-4 text-zinc-500 font-mono text-sm">Chargement...</p>
+          <p className="mt-4 text-zinc-500 font-mono text-sm">
+            {serverWaking ? "Serveur en cours de démarrage, nouvelle tentative..." : "Chargement..."}
+          </p>
         </div>
       </div>
     );
@@ -1586,11 +1647,6 @@ function AppContent() {
   if (!user) {
     if (authMode === "forgot") {
       return <ForgotPasswordPage onBack={() => setAuthMode("login")} />;
-    }
-    if (authMode === "reset") {
-      const params = new URLSearchParams(window.location.search);
-      const token = params.get("token") || "";
-      return <ResetPasswordPage token={token} onDone={() => { window.history.replaceState({}, "", "/"); setAuthMode("login"); }} />;
     }
     if (authMode === "register") {
       return <RegisterPage onSwitch={() => setAuthMode("login")} />;
