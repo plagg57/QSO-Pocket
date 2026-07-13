@@ -1629,7 +1629,7 @@ function Dashboard() {
                 }} />
               <button onClick={() => document.getElementById("adif-import-input")?.click()} data-testid="import-adif-btn"
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#121212] hover:bg-[#1a1a1a] text-zinc-300 border border-zinc-800 font-mono text-xs uppercase tracking-wider transition-all duration-200">
-                <ArrowLeft size={16} className="text-amber-500 rotate-90" /> Importer un fichier ADIF
+                <ArrowLeft size={16} className="text-amber-500 -rotate-90" /> Importer un fichier ADIF
               </button>
             </div>
 
