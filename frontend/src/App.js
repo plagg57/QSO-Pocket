@@ -1594,7 +1594,13 @@ function Dashboard() {
                   if (result.success) {
                     toast.success(`${qsos.length} QSOs exportés — ${result.message}`);
                   } else {
-                    toast.error(result.message);
+                    // Fallback: copy to clipboard
+                    try {
+                      await navigator.clipboard.writeText(adif);
+                      toast.info("Export impossible sur cet appareil. Le contenu ADIF a été copié dans le presse-papier.");
+                    } catch {
+                      toast.error(result.message);
+                    }
                   }
                 } catch {
                   toast.error("Erreur export ADIF");
