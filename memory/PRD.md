@@ -1,40 +1,53 @@
-# QSO Logbook - Product Requirements Document
+# QSO Pocket — Product Requirements Document
 
-## Problem Statement
-Application de carnet de trafic radio amateur (QSO) pour enregistrer et consulter ses contacts facilement.
+## Original Problem Statement
+"Crée moi une application pour mettre mes QSO dedans pour les avoir sous la main directement."
+
+## Product Description
+QSO Pocket is a multi-user, mobile-friendly amateur radio logbook web application. It tracks callsigns, dates, UTC time, frequency, band, mode, RST (sent/received), QSL (sent/received), names, and comments.
+
+## Core Features — All DONE
+- Custom auth (email/callsign + password) with admin role
+- QSO CRUD with auto band calculation from frequency
+- Callsign grouping with history, anti-duplicate detection
+- Country flag detection from 150+ amateur radio prefixes
+- ADIF Export with robust Capacitor/Web Share API fallback for Android
+- ADIF Import via JSON text payload (bypasses multipart issues)
+- Wavelog API synchronization (push/export)
+- Admin Panel (manage users, view/delete QSOs)
+- Profile Page (change password, email, Wavelog config)
+- Dark-theme retro-terminal UI
+- **Internationalization (i18n)** — FR, EN, DE, IT with persistent top-right language selector (DONE Feb 2026)
+
+## Tech Stack
+- Frontend: React 18, Tailwind CSS, Phosphor Icons, Axios, react-i18next, Shadcn/UI
+- Backend: FastAPI, PyMongo, JWT Auth
+- Database: MongoDB (collections: users, qsos, password_reset_tokens)
+- Mobile: Capacitor compatibility (@capacitor/filesystem, @capacitor/share)
 
 ## Architecture
-- **Backend**: FastAPI + MongoDB (Motor async)
-- **Frontend**: React + Tailwind CSS + Shadcn/UI
-- **Base de données**: MongoDB (collection: qsos)
+```
+/app/frontend/src/App.js — Monolithic (~1735 lines) containing all components
+/app/frontend/src/i18n/ — Translation files (fr.json, en.json, de.json, it.json, index.js)
+/app/frontend/src/utils/ — exportAdif.js, callsignFlags.js, bands.js
+/app/backend/server.py — FastAPI backend with all API routes
+```
 
-## User Persona
-- Radioamateur souhaitant enregistrer ses contacts (QSO) de manière simple et rapide
+## Key API Endpoints
+- POST /api/auth/register | POST /api/auth/login | GET /api/auth/me
+- GET /api/qso/grouped | POST /api/qso | PUT /api/qso/{id} | DELETE /api/qso/{id}
+- POST /api/qso/import/adif-text (JSON payload of ADIF string)
+- GET /api/wavelog/config | PUT /api/wavelog/config | POST /api/wavelog/sync
+- GET /api/admin/users | DELETE /api/admin/qso/{id}
 
-## Core Requirements (Implemented)
-- [x] CRUD complet pour QSO (Create, Read, Update, Delete)
-- [x] Champs: Indicatif, Date, Fréquence, Nom
-- [x] Recherche par indicatif ou nom
-- [x] Statistiques (total QSOs)
-- [x] Interface sombre style terminal radio
+## Backlog (Prioritized)
+### P2
+- Real email sending for "Forgot Password" (currently simulated via UI token display)
+- Offline mode (PWA/Service Worker) to save QSOs without internet and sync upon return
 
-## Implementation Log
-- **Janvier 2026**: MVP créé avec toutes les fonctionnalités de base
+### P3
+- Bidirectional Wavelog sync (import from Wavelog)
+- App.js refactoring into separate component files
 
-## API Endpoints
-- `POST /api/qso` - Créer un QSO
-- `GET /api/qso` - Liste des QSOs (avec filtres)
-- `GET /api/qso/{id}` - Récupérer un QSO
-- `PUT /api/qso/{id}` - Modifier un QSO
-- `DELETE /api/qso/{id}` - Supprimer un QSO
-- `GET /api/qso/stats/total` - Statistiques
-
-## Prioritized Backlog
-### P1 (Next Features)
-- Export ADIF pour interopérabilité avec d'autres logiciels
-- Champs additionnels: Mode, RST, Locator, Puissance
-
-### P2 (Future Enhancements)
-- Statistiques avancées (par bande, par pays)
-- Carte géographique des contacts
-- Import ADIF
+## Mocked Features
+- "Forgot password" email sending — displays reset link in UI instead of sending email
