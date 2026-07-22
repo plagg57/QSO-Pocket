@@ -338,6 +338,7 @@ function ForgotPasswordPage({ onBack }) {
   const [identifier, setIdentifier] = useState("");
   const [loading, setLoading] = useState(false);
   const [resetLink, setResetLink] = useState(null);
+  const [emailSent, setEmailSent] = useState(false);
   const [resetCallsign, setResetCallsign] = useState("");
 
   const handleSubmit = async (e) => {
@@ -346,11 +347,15 @@ function ForgotPasswordPage({ onBack }) {
     setLoading(true);
     try {
       const { data } = await axios.post(`${API}/auth/forgot-password`, { email: identifier });
-      if (data.reset_link) {
+      setResetCallsign(data.callsign || "");
+      if (data.email_sent) {
+        setEmailSent(true);
+        toast.success(t("forgot.email_sent"));
+      } else if (data.reset_link) {
         setResetLink(data.reset_link);
-        setResetCallsign(data.callsign || "");
         toast.success(t("forgot.link_generated"));
       } else {
+        setEmailSent(true);
         toast.info(t("forgot.link_generated"));
       }
     } catch (err) { toast.error(formatApiError(err.response?.data?.detail)); }
@@ -371,7 +376,20 @@ function ForgotPasswordPage({ onBack }) {
           </h2>
           <p className="text-xs text-zinc-500 font-mono mb-6">{t("forgot.description")}</p>
 
-          {resetLink ? (
+          {emailSent ? (
+            <div className="space-y-4">
+              <div className="bg-[#09090b] border border-green-500/30 p-4">
+                <div className="text-xs font-bold uppercase tracking-[0.2em] text-green-500 mb-2 flex items-center gap-2">
+                  <Check size={14} /> {t("forgot.email_sent_title")}{resetCallsign ? ` — ${resetCallsign}` : ""}
+                </div>
+                <p className="text-xs text-zinc-400 font-mono">{t("forgot.email_sent_desc")}</p>
+              </div>
+              <Button onClick={() => { setEmailSent(false); setIdentifier(""); }}
+                className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-mono uppercase tracking-wider rounded-none h-10 text-xs">
+                {t("forgot.new_link")}
+              </Button>
+            </div>
+          ) : resetLink ? (
             <div className="space-y-4">
               <div className="bg-[#09090b] border border-amber-500/30 p-4">
                 <div className="text-xs font-bold uppercase tracking-[0.2em] text-amber-500 mb-2">{t("forgot.reset_link_for")}{resetCallsign ? ` ${resetCallsign}` : ""}</div>

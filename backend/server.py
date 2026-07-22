@@ -16,6 +16,12 @@ import bcrypt
 import jwt
 import secrets
 import httpx
+import asyncio
+import resend
+
+# Resend email setup
+resend.api_key = os.environ.get("RESEND_API_KEY", "")
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -226,7 +232,7 @@ async def forgot_password(data: ForgotPasswordRequest):
 
     if not user:
         # Don't reveal if user exists
-        return {"message": "Si ce compte existe, un lien de réinitialisation a été généré.", "reset_link": None}
+        return {"message": "Si ce compte existe, un email de réinitialisation a été envoyé.", "email_sent": False}
 
     token = secrets.token_urlsafe(32)
     await db.password_reset_tokens.insert_one({
@@ -244,12 +250,56 @@ async def forgot_password(data: ForgotPasswordRequest):
     reset_link = f"{frontend_url}/reset-password?token={token}" if frontend_url else f"/reset-password?token={token}"
     logger.info(f"Password reset link for {user['email']}: {reset_link}")
 
-    # Simulation mode: return the link directly
-    return {
-        "message": "Lien de réinitialisation généré",
-        "reset_link": reset_link,
-        "callsign": user.get("callsign", "")
-    }
+    callsign = user.get("callsign", "OM")
+    user_email = user.get("email", "")
+
+    # Try sending real email via Resend
+    email_sent = False
+    if resend.api_key and user_email:
+        try:
+            html_content = f"""
+            <div style="font-family: 'Courier New', monospace; background: #09090b; color: #fafafa; padding: 32px; max-width: 500px; margin: 0 auto;">
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <h1 style="color: #f59e0b; font-size: 24px; margin: 0;">QSO POCKET</h1>
+                    <p style="color: #71717a; font-size: 12px; text-transform: uppercase; letter-spacing: 2px;">Password Reset</p>
+                </div>
+                <p style="color: #a1a1aa; font-size: 14px;">Hello <strong style="color: #f59e0b;">{callsign}</strong>,</p>
+                <p style="color: #a1a1aa; font-size: 14px;">A password reset was requested for your account. Click the button below to set a new password:</p>
+                <div style="text-align: center; margin: 24px 0;">
+                    <a href="{reset_link}" style="display: inline-block; background: #f59e0b; color: #000; padding: 12px 32px; text-decoration: none; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; font-size: 14px;">Reset Password</a>
+                </div>
+                <p style="color: #52525b; font-size: 12px;">This link expires in 1 hour. If you didn't request this, ignore this email.</p>
+                <hr style="border: 1px solid #27272a; margin: 24px 0;" />
+                <p style="color: #3f3f46; font-size: 11px; text-align: center;">73 — QSO Pocket</p>
+            </div>
+            """
+            params = {
+                "from": SENDER_EMAIL,
+                "to": [user_email],
+                "subject": f"QSO Pocket — Password Reset for {callsign}",
+                "html": html_content
+            }
+            await asyncio.to_thread(resend.Emails.send, params)
+            email_sent = True
+            logger.info(f"Password reset email sent to {user_email}")
+        except Exception as e:
+            logger.error(f"Failed to send reset email: {str(e)}")
+            email_sent = False
+
+    if email_sent:
+        return {
+            "message": f"Email de réinitialisation envoyé à {user_email}",
+            "email_sent": True,
+            "callsign": callsign
+        }
+    else:
+        # Fallback: return link in response (simulation mode)
+        return {
+            "message": "Lien de réinitialisation généré",
+            "reset_link": reset_link,
+            "email_sent": False,
+            "callsign": callsign
+        }
 
 @api_router.post("/auth/reset-password")
 async def reset_password(data: ResetPasswordRequest):
