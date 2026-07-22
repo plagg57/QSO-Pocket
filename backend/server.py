@@ -223,7 +223,7 @@ class ResetPasswordRequest(BaseModel):
     password: str = Field(..., min_length=6)
 
 @api_router.post("/auth/forgot-password")
-async def forgot_password(data: ForgotPasswordRequest):
+async def forgot_password(data: ForgotPasswordRequest, request: Request):
     identifier = data.email.strip()
     if "@" in identifier:
         user = await db.users.find_one({"email": identifier.lower()})
@@ -242,12 +242,21 @@ async def forgot_password(data: ForgotPasswordRequest):
         "used": False
     })
 
+    # Build frontend URL from request origin or env
     frontend_url = os.environ.get("REACT_APP_FRONTEND_URL", "")
     if not frontend_url:
-        cors = os.environ.get("CORS_ORIGINS", "")
-        frontend_url = cors.split(",")[0].strip() if cors and cors != "*" else ""
+        # Use Origin or Referer header from the request
+        origin = request.headers.get("origin") or request.headers.get("referer", "")
+        if origin:
+            # Strip trailing path from referer (e.g. https://app.com/some-page -> https://app.com)
+            from urllib.parse import urlparse
+            parsed = urlparse(origin)
+            frontend_url = f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else ""
+    if not frontend_url:
+        # Last resort: use the request's own base URL (works when frontend/backend share domain)
+        frontend_url = str(request.base_url).rstrip("/")
 
-    reset_link = f"{frontend_url}/reset-password?token={token}" if frontend_url else f"/reset-password?token={token}"
+    reset_link = f"{frontend_url}/reset-password?token={token}"
     logger.info(f"Password reset link for {user['email']}: {reset_link}")
 
     callsign = user.get("callsign", "OM")

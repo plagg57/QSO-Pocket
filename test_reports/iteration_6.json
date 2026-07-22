@@ -1,0 +1,34 @@
+{
+  "summary": "Tested password reset link fix. Link now starts with https:// (partial fix), but points to WRONG domain (internal cluster URL) that is inaccessible externally — bug is NOT fully fixed. Reset password flow itself works when navigating on correct domain. Admin password restored to admin123.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/auth/forgot-password", "issue": "reset_link returns 'https://radio-memory.cluster-7.preview.emergentcf.cloud/reset-password?token=...' — the internal Kubernetes cluster domain, NOT the public 'radio-memory.preview.emergentagent.com' the user is browsing on. Clicking it externally returns HTTP 403 ('Ce site est inaccessible'). Root cause: the K8s ingress rewrites the Origin/Referer headers before they reach FastAPI, so request.headers.get('origin') sees the internal cluster host. Even sending an explicit Origin header via curl (Origin: https://radio-memory.preview.emergentagent.com) returned the cluster-7 URL. The 3-tier fallback (env → Origin/Referer → request.base_url) all resolve to the internal host in this environment.", "priority": "CRITICAL"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Forgot Password → click displayed link", "issue": "The <a> anchor href points to cluster-7.preview.emergentcf.cloud which is not externally routable; clicking shows browser error page. Only workaround is manual copy-paste + domain replacement.", "affected_selectors": ["a[href*='reset-password']"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Do NOT rely on Origin/Referer headers in this K8s environment — they get rewritten to internal cluster hostname.",
+    "Recommended fix: (a) Read REACT_APP_FRONTEND_URL from backend .env (set it to https://radio-memory.preview.emergentagent.com), OR (b) Have the frontend pass its own window.location.origin in the forgot-password request body and use that to build the link, OR (c) Have the frontend construct the reset_link display using window.location.origin + '/reset-password?token=' + (extract token from returned link).",
+    "Option (b) or (c) is most robust across environments."
+  ],
+  "critical_code_review_comments": [
+    "server.py forgot_password: trusting client-controlled Origin/Referer is an open-redirect-lite risk. If user supplies malicious Origin, a phishing link could be built. Prefer server-side allow-list or explicit env var.",
+    "REACT_APP_FRONTEND_URL not set in backend/.env — the first (safest) branch of the fallback never fires."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "50% (reset & login work; forgot-password link domain still wrong)", "frontend": "80% (forgot/reset UI works if user manually corrects the domain)"},
+  "test_credentials": "admin@example.com / admin123 (verified working after test, password restored)",
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Bug is NOT fixed. Reset link points to internal cluster domain (radio-memory.cluster-7.preview.emergentcf.cloud) which returns 403 externally — same 'site inaccessible' symptom the fix was supposed to resolve. K8s ingress rewrites Origin/Referer headers, so Origin-based fallback in server.py doesn't work in this env. Verified via curl even with explicit Origin header. Admin password is admin123. Reset flow logic itself (POST /api/auth/reset-password) works fine.",
+  "rca of the issue": "In this Kubernetes preview environment the ingress forwards requests with rewritten Origin/Referer headers pointing to the internal cluster host (radio-memory.cluster-7.preview.emergentcf.cloud). The backend's fallback logic (Origin → Referer → request.base_url) all collapse to that internal host. Public browser origin (radio-memory.preview.emergentagent.com) never reaches the FastAPI app. Reproduce: `curl -X POST https://radio-memory.preview.emergentagent.com/api/auth/forgot-password -H 'Content-Type: application/json' -H 'Origin: https://radio-memory.preview.emergentagent.com' -d '{\"email\":\"admin@example.com\"}'` → reset_link contains cluster-7 URL. Mitigation: use frontend-supplied origin (pass in request body) or set REACT_APP_FRONTEND_URL in backend/.env to the public URL."
+}
