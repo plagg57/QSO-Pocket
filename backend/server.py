@@ -217,6 +217,7 @@ async def refresh_token(request: Request, response: Response):
 # === Password Reset ===
 class ForgotPasswordRequest(BaseModel):
     email: str
+    frontend_origin: Optional[str] = None
 
 class ResetPasswordRequest(BaseModel):
     token: str
@@ -231,7 +232,6 @@ async def forgot_password(data: ForgotPasswordRequest, request: Request):
         user = await db.users.find_one({"callsign": identifier.upper()})
 
     if not user:
-        # Don't reveal if user exists
         return {"message": "Si ce compte existe, un email de réinitialisation a été envoyé.", "email_sent": False}
 
     token = secrets.token_urlsafe(32)
@@ -242,21 +242,18 @@ async def forgot_password(data: ForgotPasswordRequest, request: Request):
         "used": False
     })
 
-    # Build frontend URL from request origin or env
-    frontend_url = os.environ.get("REACT_APP_FRONTEND_URL", "")
+    # Build frontend URL: prefer client-supplied origin, then env, then request
+    frontend_url = ""
+    if hasattr(data, "frontend_origin") and data.frontend_origin:
+        frontend_url = data.frontend_origin.rstrip("/")
     if not frontend_url:
-        # Use Origin or Referer header from the request
-        origin = request.headers.get("origin") or request.headers.get("referer", "")
+        frontend_url = os.environ.get("REACT_APP_FRONTEND_URL", "").rstrip("/")
+    if not frontend_url:
+        origin = request.headers.get("origin", "")
         if origin:
-            # Strip trailing path from referer (e.g. https://app.com/some-page -> https://app.com)
-            from urllib.parse import urlparse
-            parsed = urlparse(origin)
-            frontend_url = f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else ""
-    if not frontend_url:
-        # Last resort: use the request's own base URL (works when frontend/backend share domain)
-        frontend_url = str(request.base_url).rstrip("/")
+            frontend_url = origin.rstrip("/")
 
-    reset_link = f"{frontend_url}/reset-password?token={token}"
+    reset_link = f"{frontend_url}/reset-password?token={token}" if frontend_url else f"/reset-password?token={token}"
     logger.info(f"Password reset link for {user['email']}: {reset_link}")
 
     callsign = user.get("callsign", "OM")

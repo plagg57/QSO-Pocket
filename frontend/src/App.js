@@ -346,7 +346,7 @@ function ForgotPasswordPage({ onBack }) {
     if (!identifier) { toast.error(t("forgot.fill_field")); return; }
     setLoading(true);
     try {
-      const { data } = await axios.post(`${API}/auth/forgot-password`, { email: identifier });
+      const { data } = await axios.post(`${API}/auth/forgot-password`, { email: identifier, frontend_origin: window.location.origin });
       setResetCallsign(data.callsign || "");
       if (data.email_sent) {
         setEmailSent(true);
