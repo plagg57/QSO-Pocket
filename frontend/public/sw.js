@@ -1,34 +1,20 @@
 const CACHE_NAME = "qso-pocket-v1";
-const STATIC_ASSETS = [
-  "/",
-  "/index.html",
-  "/static/js/bundle.js",
-  "/static/css/main.css",
-];
 
-// Install: cache app shell
+// Install: skip waiting to activate immediately
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS).catch(() => {
-        // Some assets may not exist in dev, ignore
-      });
-    })
-  );
   self.skipWaiting();
 });
 
-// Activate: clean old caches
+// Activate: clean old caches and claim clients
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// Fetch: network-first for API, cache-first for static
+// Fetch: network-first for API, stale-while-revalidate for static
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
@@ -45,26 +31,28 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static assets: cache-first, then network
+  // Static assets: stale-while-revalidate (serve cache, update in background)
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((response) => {
-          // Cache successful responses for same-origin
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.match(event.request).then((cached) => {
+        const fetchPromise = fetch(event.request).then((response) => {
           if (response.ok && url.origin === self.location.origin) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            cache.put(event.request, response.clone());
           }
           return response;
-        })
-        .catch(() => {
+        }).catch(() => {
+          // If network fails and we have cache, return it
+          if (cached) return cached;
           // Fallback for navigation requests
           if (event.request.mode === "navigate") {
-            return caches.match("/index.html");
+            return cache.match("/index.html");
           }
           return new Response("Offline", { status: 503 });
         });
+
+        // Return cached version immediately, update in background
+        return cached || fetchPromise;
+      });
     })
   );
 });

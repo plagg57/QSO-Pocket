@@ -13,41 +13,62 @@ QSO Pocket is a multi-user, mobile-friendly amateur radio logbook web applicatio
 - Country flag detection from 150+ amateur radio prefixes
 - ADIF Export with robust Capacitor/Web Share API fallback for Android
 - ADIF Import via JSON text payload (bypasses multipart issues)
-- Wavelog API synchronization (push/export)
+- Wavelog API bidirectional sync (push/export + import from Wavelog)
 - Admin Panel (manage users, view/delete QSOs)
 - Profile Page (change password, email, Wavelog config)
 - Dark-theme retro-terminal UI
-- **Internationalization (i18n)** — FR, EN, DE, IT with persistent top-right language selector (DONE Feb 2026)
+- Internationalization (i18n) — FR, EN, DE, IT with persistent top-right language selector
+- PWA offline mode — Service Worker + IndexedDB offline queue for QSO creation + auto-sync on reconnection
 
 ## Tech Stack
 - Frontend: React 18, Tailwind CSS, Phosphor Icons, Axios, react-i18next, Shadcn/UI
-- Backend: FastAPI, PyMongo, JWT Auth
-- Database: MongoDB (collections: users, qsos, password_reset_tokens)
-- Mobile: Capacitor compatibility (@capacitor/filesystem, @capacitor/share)
+- Backend: FastAPI, PyMongo, JWT Auth, httpx
+- Database: MongoDB (collections: users, qsos, password_reset_tokens, wavelog_config, wavelog_sync_log)
+- Mobile: Capacitor compatibility, PWA Service Worker
+- Offline: IndexedDB for QSO queue
 
 ## Architecture
 ```
-/app/frontend/src/App.js — Monolithic (~1735 lines) containing all components
-/app/frontend/src/i18n/ — Translation files (fr.json, en.json, de.json, it.json, index.js)
-/app/frontend/src/utils/ — exportAdif.js, callsignFlags.js, bands.js
-/app/backend/server.py — FastAPI backend with all API routes
+/app/frontend/src/
+├── App.js           — Monolithic (~1840 lines) containing all components
+├── config.js        — Extracted shared config (API URL, constants, formatApiError)
+├── context/
+│   └── AuthContext.jsx — Extracted auth context/provider (ready for future import)
+├── components/
+│   ├── shared.jsx   — Extracted LanguageSelector, OfflineBanner, useOnlineStatus
+│   ├── ui/          — Shadcn UI components
+│   ├── auth/        — (placeholder dirs for future refactoring)
+│   ├── qso/
+│   ├── admin/
+│   └── profile/
+├── i18n/            — Translation files (fr.json, en.json, de.json, it.json, index.js)
+└── utils/
+    ├── offlineQueue.js  — IndexedDB offline queue for QSOs
+    ├── exportAdif.js    — ADIF export with Capacitor fallback
+    ├── callsignFlags.js — 150+ prefix-to-flag mappings
+    └── bands.js         — Band calculation from frequency
+/app/frontend/public/
+├── sw.js            — Service Worker (stale-while-revalidate caching)
+└── manifest.json    — PWA manifest
+/app/backend/
+└── server.py        — FastAPI backend with all API routes
 ```
 
 ## Key API Endpoints
 - POST /api/auth/register | POST /api/auth/login | GET /api/auth/me
 - GET /api/qso/grouped | POST /api/qso | PUT /api/qso/{id} | DELETE /api/qso/{id}
 - POST /api/qso/import/adif-text (JSON payload of ADIF string)
-- GET /api/wavelog/config | PUT /api/wavelog/config | POST /api/wavelog/sync
+- GET /api/wavelog/config | PUT /api/wavelog/config
+- POST /api/wavelog/sync | POST /api/wavelog/import (NEW - bidirectional)
+- POST /api/wavelog/test
 - GET /api/admin/users | DELETE /api/admin/qso/{id}
 
 ## Backlog (Prioritized)
 ### P2
-- Real email sending for "Forgot Password" (currently simulated via UI token display)
-- Offline mode (PWA/Service Worker) to save QSOs without internet and sync upon return
+- Real email sending for "Forgot Password" via Resend (waiting for user's API key)
 
 ### P3
-- Bidirectional Wavelog sync (import from Wavelog)
-- App.js refactoring into separate component files
+- Full App.js refactoring into separate component files (foundation files created)
 
 ## Mocked Features
-- "Forgot password" email sending — displays reset link in UI instead of sending email
+- "Forgot password" email sending — displays reset link in UI instead of sending email (awaiting Resend API key)
