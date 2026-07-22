@@ -154,7 +154,11 @@
     "show_log": "Show sync log",
     "hide_log": "Hide log",
     "clear_log": "Log cleared",
-    "no_log": "No log"
+    "no_log": "No log",
+    "import": "Import from Wavelog",
+    "importing": "Importing...",
+    "imported": "imported from Wavelog",
+    "import_error": "Wavelog import error"
   },
   "admin": {
     "title": "Administration",
@@ -192,5 +196,14 @@
   "detail_extra": {
     "mode_updated": "Mode updated",
     "mode_update_error": "Mode update error"
+  },
+  "offline": {
+    "indicator": "Offline",
+    "qso_queued": "QSO saved offline",
+    "syncing": "Syncing pending QSOs...",
+    "synced": "pending QSO(s) synced",
+    "sync_error": "Offline sync error",
+    "pending": "pending QSO(s)",
+    "back_online": "Back online"
   }
 }

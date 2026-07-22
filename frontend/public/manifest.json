@@ -1,0 +1,21 @@
+{
+  "short_name": "QSO Pocket",
+  "name": "QSO Pocket — Carnet Radio Amateur",
+  "icons": [
+    {
+      "src": "https://customer-assets.emergentagent.com/job_radio-memory/artifacts/gnvrdwzf_1000015588.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://customer-assets.emergentagent.com/job_radio-memory/artifacts/gnvrdwzf_1000015588.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#09090b",
+  "background_color": "#09090b",
+  "orientation": "portrait-primary"
+}

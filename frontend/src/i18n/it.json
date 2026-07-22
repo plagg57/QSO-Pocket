@@ -154,7 +154,11 @@
     "show_log": "Mostra log sincronizzazione",
     "hide_log": "Nascondi log",
     "clear_log": "Log cancellato",
-    "no_log": "Nessun log"
+    "no_log": "Nessun log",
+    "import": "Importa da Wavelog",
+    "importing": "Importazione...",
+    "imported": "importati da Wavelog",
+    "import_error": "Errore importazione Wavelog"
   },
   "admin": {
     "title": "Amministrazione",
@@ -192,5 +196,14 @@
   "detail_extra": {
     "mode_updated": "Modo aggiornato",
     "mode_update_error": "Errore aggiornamento modo"
+  },
+  "offline": {
+    "indicator": "Offline",
+    "qso_queued": "QSO salvato offline",
+    "syncing": "Sincronizzazione QSO in attesa...",
+    "synced": "QSO in attesa sincronizzati",
+    "sync_error": "Errore sincronizzazione offline",
+    "pending": "QSO in attesa",
+    "back_online": "Di nuovo online"
   }
 }

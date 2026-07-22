@@ -26,7 +26,9 @@ import {
   Hash,
   Check,
   Export,
-  Gear
+  Gear,
+  WifiSlash,
+  CloudArrowUp
 } from "@phosphor-icons/react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -34,6 +36,7 @@ import { Label } from "@/components/ui/label";
 import { getFlagUrl, getCountryName } from "@/utils/callsignFlags";
 import { getBand } from "@/utils/bands";
 import { exportAdifFile } from "@/utils/exportAdif";
+import { addPendingQSO, getPendingQSOs, removePendingQSO, getPendingCount } from "@/utils/offlineQueue";
 
 const LOGO_URL = "https://customer-assets.emergentagent.com/job_radio-memory/artifacts/gnvrdwzf_1000015588.png";
 
@@ -92,6 +95,35 @@ function LanguageSelector() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// === Online status hook ===
+function useOnlineStatus() {
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => { window.removeEventListener("online", goOnline); window.removeEventListener("offline", goOffline); };
+  }, []);
+  return isOnline;
+}
+
+// === Offline Banner ===
+function OfflineBanner({ pendingCount }) {
+  const { t } = useTranslation();
+  const isOnline = useOnlineStatus();
+  if (isOnline && pendingCount === 0) return null;
+  return (
+    <div className={`fixed top-0 left-0 right-0 z-[100] px-4 py-2 text-center text-xs font-mono uppercase tracking-wider transition-all duration-300 ${isOnline ? "bg-amber-500/90 text-black" : "bg-red-600/90 text-white"}`} data-testid="offline-banner">
+      {!isOnline ? (
+        <span className="flex items-center justify-center gap-2"><WifiSlash size={14} weight="bold" /> {t("offline.indicator")}</span>
+      ) : pendingCount > 0 ? (
+        <span className="flex items-center justify-center gap-2"><CloudArrowUp size={14} weight="bold" /> {pendingCount} {t("offline.pending")}</span>
+      ) : null}
     </div>
   );
 }
@@ -498,17 +530,28 @@ function AddQSOModal({ callsign, prefillName, onClose, onAdded }) {
     if (!formData.callsign || !formData.date || !formData.frequency) {
       toast.error(t("qso.fill_required")); return;
     }
+    const payload = {
+      ...formData,
+      callsign: formData.callsign.toUpperCase(),
+      frequency: parseFloat(formData.frequency),
+    };
     try {
-      await axios.post(`${API}/qso`, {
-        ...formData,
-        callsign: formData.callsign.toUpperCase(),
-        frequency: parseFloat(formData.frequency),
-      });
+      await axios.post(`${API}/qso`, payload);
       toast.success(t("qso.saved"));
       onAdded();
       onClose();
     } catch (error) {
-      toast.error(formatApiError(error.response?.data?.detail));
+      // If network error (offline), queue for later sync
+      if (!error.response || error.response.status === 503) {
+        try {
+          await addPendingQSO(payload);
+          toast.success(t("offline.qso_queued"));
+          onAdded();
+          onClose();
+        } catch { toast.error(t("common.error")); }
+      } else {
+        toast.error(formatApiError(error.response?.data?.detail));
+      }
     }
   };
 
@@ -992,6 +1035,8 @@ function WavelogSection() {
   const [syncResult, setSyncResult] = useState(null);
   const [logs, setLogs] = useState([]);
   const [showLogs, setShowLogs] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
 
   useEffect(() => {
     axios.get(`${API}/wavelog/config`).then(res => {
@@ -1040,6 +1085,17 @@ function WavelogSection() {
     } catch { toast.error(t("common.error")); }
   };
 
+  const handleImport = async () => {
+    setImporting(true); setImportResult(null);
+    try {
+      const { data } = await axios.post(`${API}/wavelog/import`);
+      setImportResult(data);
+      if (data.imported > 0) toast.success(`${data.imported} ${t("wavelog.imported")}`);
+      else toast.info(data.message);
+    } catch (err) { toast.error(formatApiError(err.response?.data?.detail)); }
+    finally { setImporting(false); }
+  };
+
   if (loading) return null;
 
   return (
@@ -1077,7 +1133,7 @@ function WavelogSection() {
         </Button>
 
         {configured && (
-          <div className="grid grid-cols-2 gap-2 pt-2">
+          <div className="grid grid-cols-3 gap-2 pt-2">
             <button onClick={handleTest} disabled={testing} data-testid="wavelog-test-btn"
               className="flex items-center justify-center gap-1 px-3 py-2 text-xs font-mono uppercase tracking-wider text-zinc-300 border border-zinc-700 hover:border-amber-500/50 transition-all">
               {testing ? "..." : t("wavelog.test")}
@@ -1085,6 +1141,10 @@ function WavelogSection() {
             <button onClick={handleSync} disabled={syncing} data-testid="wavelog-sync-btn"
               className="flex items-center justify-center gap-1 px-3 py-2 text-xs font-mono uppercase tracking-wider text-amber-500 border border-amber-500/30 hover:bg-amber-500/10 transition-all">
               {syncing ? t("wavelog.syncing") : t("wavelog.sync")}
+            </button>
+            <button onClick={handleImport} disabled={importing} data-testid="wavelog-import-btn"
+              className="flex items-center justify-center gap-1 px-3 py-2 text-xs font-mono uppercase tracking-wider text-green-400 border border-green-500/30 hover:bg-green-500/10 transition-all">
+              {importing ? t("wavelog.importing") : t("wavelog.import")}
             </button>
           </div>
         )}
@@ -1098,6 +1158,12 @@ function WavelogSection() {
         {syncResult && (
           <div className="text-xs font-mono p-3 border border-amber-500/30 text-amber-400 bg-amber-500/5" data-testid="wavelog-sync-result">
             {syncResult.message}
+          </div>
+        )}
+
+        {importResult && (
+          <div className="text-xs font-mono p-3 border border-green-500/30 text-green-400 bg-green-500/5" data-testid="wavelog-import-result">
+            {importResult.message}
           </div>
         )}
 
@@ -1408,6 +1474,7 @@ function AdminPanel({ onBack }) {
 function Dashboard() {
   const { user, logout } = useAuth();
   const { t } = useTranslation();
+  const isOnline = useOnlineStatus();
   const [grouped, setGrouped] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -1418,6 +1485,44 @@ function Dashboard() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [bandFilter, setBandFilter] = useState("");
+  const [pendingCount, setPendingCount] = useState(0);
+
+  const refreshPendingCount = useCallback(async () => {
+    try { setPendingCount(await getPendingCount()); } catch {}
+  }, []);
+
+  // Sync pending QSOs when back online
+  const syncPendingQSOs = useCallback(async () => {
+    const pending = await getPendingQSOs();
+    if (pending.length === 0) return;
+    let synced = 0;
+    for (const qso of pending) {
+      try {
+        const { localId, createdAt, ...payload } = qso;
+        await axios.post(`${API}/qso`, payload);
+        await removePendingQSO(localId);
+        synced++;
+      } catch { break; }
+    }
+    if (synced > 0) {
+      toast.success(`${synced} ${t("offline.synced")}`);
+      fetchGrouped();
+      fetchStats();
+    }
+    refreshPendingCount();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t, refreshPendingCount]);
+
+  useEffect(() => {
+    refreshPendingCount();
+  }, [refreshPendingCount]);
+
+  // Auto-sync when coming back online
+  useEffect(() => {
+    if (isOnline) {
+      syncPendingQSOs();
+    }
+  }, [isOnline, syncPendingQSOs]);
 
   const fetchGrouped = useCallback(async () => {
     try {
@@ -1452,6 +1557,7 @@ function Dashboard() {
   const handleAdded = () => {
     fetchGrouped();
     fetchStats();
+    refreshPendingCount();
   };
 
   const searchUpper = searchTerm.toUpperCase().trim();
@@ -1461,7 +1567,8 @@ function Dashboard() {
   return (
     <div className="min-h-screen bg-[#09090b] relative">
       <div className="radio-bg"></div>
-      <div className="relative z-10 max-w-[1100px] mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
+      <OfflineBanner pendingCount={pendingCount} />
+      <div className={`relative z-10 max-w-[1100px] mx-auto p-3 sm:p-4 md:p-6 lg:p-8 ${(!isOnline || pendingCount > 0) ? "pt-12" : ""}`}>
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-zinc-800 pb-4 mb-6 gap-3" data-testid="app-header">
           <div className="flex items-center gap-2">
             <img src={LOGO_URL} alt="QSO Pocket" className="h-8 sm:h-10" />

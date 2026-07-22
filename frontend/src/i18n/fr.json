@@ -154,7 +154,11 @@
     "show_log": "Voir le journal de sync",
     "hide_log": "Masquer le journal",
     "clear_log": "Journal vidé",
-    "no_log": "Aucun log"
+    "no_log": "Aucun log",
+    "import": "Importer depuis Wavelog",
+    "importing": "Import...",
+    "imported": "importé(s) depuis Wavelog",
+    "import_error": "Erreur import Wavelog"
   },
   "admin": {
     "title": "Administration",
@@ -192,5 +196,14 @@
   "detail_extra": {
     "mode_updated": "Mode mis à jour",
     "mode_update_error": "Erreur mise à jour du mode"
+  },
+  "offline": {
+    "indicator": "Hors ligne",
+    "qso_queued": "QSO sauvegardé hors ligne",
+    "syncing": "Synchronisation des QSOs en attente...",
+    "synced": "QSO(s) en attente synchronisé(s)",
+    "sync_error": "Erreur sync hors ligne",
+    "pending": "QSO(s) en attente",
+    "back_online": "Connexion rétablie"
   }
 }

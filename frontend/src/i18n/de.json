@@ -154,7 +154,11 @@
     "show_log": "Sync-Protokoll anzeigen",
     "hide_log": "Protokoll ausblenden",
     "clear_log": "Protokoll gelöscht",
-    "no_log": "Kein Protokoll"
+    "no_log": "Kein Protokoll",
+    "import": "Von Wavelog importieren",
+    "importing": "Import...",
+    "imported": "von Wavelog importiert",
+    "import_error": "Wavelog-Import-Fehler"
   },
   "admin": {
     "title": "Administration",
@@ -192,5 +196,14 @@
   "detail_extra": {
     "mode_updated": "Betriebsart aktualisiert",
     "mode_update_error": "Fehler bei der Aktualisierung der Betriebsart"
+  },
+  "offline": {
+    "indicator": "Offline",
+    "qso_queued": "QSO offline gespeichert",
+    "syncing": "Ausstehende QSOs werden synchronisiert...",
+    "synced": "ausstehende(s) QSO(s) synchronisiert",
+    "sync_error": "Offline-Sync-Fehler",
+    "pending": "ausstehende(s) QSO(s)",
+    "back_online": "Wieder online"
   }
 }

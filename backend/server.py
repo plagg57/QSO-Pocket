@@ -1033,6 +1033,117 @@ async def clear_wavelog_sync_log(request: Request):
     await db.wavelog_sync_log.delete_many({"user_id": user["id"]})
     return {"message": "Journal vidé"}
 
+@api_router.post("/wavelog/import")
+async def import_from_wavelog(request: Request):
+    """Import QSOs from Wavelog into QSO Pocket."""
+    user = await get_current_user(request)
+    config = await db.wavelog_config.find_one({"user_id": user["id"]}, {"_id": 0})
+    if not config or not config.get("wavelog_url") or not config.get("wavelog_api_key"):
+        raise HTTPException(status_code=400, detail="Wavelog non configuré")
+
+    url = config["wavelog_url"].rstrip("/")
+    key = config["wavelog_api_key"]
+    station_id = config.get("wavelog_station_id", "1")
+
+    # Try fetching QSOs from Wavelog API
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            # Wavelog API: get logbook entries
+            res = await client.get(
+                f"{url}/api/logbook/{key}",
+                headers={"Accept": "application/json"}
+            )
+            if res.status_code != 200:
+                raise HTTPException(status_code=502, detail=f"Wavelog returned {res.status_code}: {res.text[:200]}")
+
+            data = res.json()
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Timeout connecting to Wavelog")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Error connecting to Wavelog: {str(e)[:200]}")
+
+    # Parse Wavelog QSO entries
+    entries = data if isinstance(data, list) else data.get("logbook", data.get("qsos", []))
+    if not isinstance(entries, list):
+        raise HTTPException(status_code=502, detail="Format de réponse Wavelog inattendu")
+
+    imported = 0
+    skipped = 0
+    for entry in entries:
+        # Extract fields from Wavelog entry (field names may vary)
+        callsign = (entry.get("COL_CALL") or entry.get("call") or entry.get("callsign") or "").upper().strip()
+        if not callsign:
+            skipped += 1
+            continue
+
+        # Date
+        raw_date = entry.get("COL_QSO_DATE") or entry.get("qso_date") or entry.get("date") or ""
+        if len(raw_date) == 8:
+            date_str = f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:8]}"
+        else:
+            date_str = raw_date[:10] if raw_date else datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        # Time
+        raw_time = entry.get("COL_TIME_ON") or entry.get("time_on") or entry.get("time_utc") or ""
+        time_str = f"{raw_time[:2]}:{raw_time[2:4]}" if len(raw_time) >= 4 else raw_time[:5] if raw_time else ""
+
+        # Frequency
+        freq_raw = entry.get("COL_FREQ") or entry.get("freq") or entry.get("frequency") or "0"
+        try:
+            freq = float(freq_raw)
+            # Wavelog may store freq in Hz or MHz
+            if freq > 1000:
+                freq = freq / 1000000
+        except (ValueError, TypeError):
+            freq = 0
+
+        mode = entry.get("COL_MODE") or entry.get("mode") or ""
+        name = entry.get("COL_NAME") or entry.get("name") or ""
+        comment = entry.get("COL_COMMENT") or entry.get("comment") or ""
+        rst_sent = entry.get("COL_RST_SENT") or entry.get("rst_sent") or ""
+        rst_received = entry.get("COL_RST_RCVD") or entry.get("rst_rcvd") or entry.get("rst_received") or ""
+        qsl_sent = (entry.get("COL_QSL_SENT") or entry.get("qsl_sent") or "") in ("Y", "y", True, "1")
+        qsl_received = (entry.get("COL_QSL_RCVD") or entry.get("qsl_rcvd") or entry.get("qsl_received") or "") in ("Y", "y", True, "1")
+
+        # Check for duplicate
+        existing = await db.qsos.find_one({
+            "owner_id": user["id"],
+            "callsign": callsign,
+            "date": date_str,
+            "time_utc": time_str
+        })
+        if existing:
+            skipped += 1
+            continue
+
+        # Build band from frequency
+        band = freq_to_band(freq) if freq else None
+
+        doc = {
+            "id": str(uuid.uuid4()),
+            "owner_id": user["id"],
+            "owner_callsign": user.get("callsign", ""),
+            "callsign": callsign,
+            "date": date_str,
+            "time_utc": time_str,
+            "frequency": freq,
+            "band": band or "",
+            "mode": mode,
+            "name": name,
+            "comment": comment,
+            "rst_sent": str(rst_sent),
+            "rst_received": str(rst_received),
+            "qsl_sent": qsl_sent,
+            "qsl_received": qsl_received,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.qsos.insert_one(doc)
+        imported += 1
+
+    return {"imported": imported, "skipped": skipped, "message": f"{imported} importé(s), {skipped} ignoré(s)"}
+
 # Include router
 app.include_router(api_router)
 
