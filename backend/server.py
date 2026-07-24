@@ -1203,15 +1203,16 @@ async def import_from_wavelog(request: Request):
 # Include router
 app.include_router(api_router)
 
-# CORS - must support credentials
+# CORS - support cross-origin requests
 frontend_url = os.environ.get('REACT_APP_FRONTEND_URL', '')
 cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
 all_origins = [o.strip() for o in cors_origins if o.strip()]
+is_wildcard = "*" in all_origins
 
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=all_origins if "*" not in all_origins else ["*"],
+    allow_credentials=not is_wildcard,
+    allow_origins=all_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
