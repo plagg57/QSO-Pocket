@@ -181,26 +181,6 @@ async def get_me(request: Request):
     user = await get_current_user(request)
     return user
 
-@api_router.post("/auth/refresh")
-async def refresh_token_endpoint(request: Request):
-    auth_header = request.headers.get("Authorization", "")
-    token = auth_header[7:] if auth_header.startswith("Bearer ") else None
-    if not token:
-        raise HTTPException(status_code=401, detail="No token")
-    try:
-        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
-        if payload.get("type") != "refresh":
-            raise HTTPException(status_code=401, detail="Invalid token type")
-        user = await db.users.find_one({"id": payload["sub"]})
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-        access_token = create_access_token(user["id"], user["email"])
-        return {"access_token": access_token, "message": "Token refreshed"}
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Refresh token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
-
 # === Password Reset ===
 class ForgotPasswordRequest(BaseModel):
     email: str
@@ -1194,11 +1174,10 @@ app.include_router(api_router)
 frontend_url = os.environ.get('REACT_APP_FRONTEND_URL', '')
 cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
 all_origins = [o.strip() for o in cors_origins if o.strip()]
-is_wildcard = "*" in all_origins
 
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=not is_wildcard,
+    allow_credentials=False,
     allow_origins=all_origins,
     allow_methods=["*"],
     allow_headers=["*"],
