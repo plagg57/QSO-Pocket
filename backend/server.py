@@ -62,11 +62,8 @@ def create_refresh_token(user_id: str) -> str:
 
 # Auth helper
 async def get_current_user(request: Request) -> dict:
-    token = request.cookies.get("access_token")
-    if not token:
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            token = auth_header[7:]
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header[7:] if auth_header.startswith("Bearer ") else None
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
@@ -87,10 +84,6 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
-
-def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
-    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=86400, path="/")
-    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True, samesite="none", max_age=604800, path="/")
 
 # Create the main app
 app = FastAPI()
@@ -114,7 +107,7 @@ class UserResponse(BaseModel):
 
 # === Auth Endpoints ===
 @api_router.post("/auth/register")
-async def register(data: RegisterRequest, response: Response):
+async def register(data: RegisterRequest):
     email = data.email.lower().strip()
     callsign = data.callsign.upper().strip()
     
@@ -138,13 +131,11 @@ async def register(data: RegisterRequest, response: Response):
     await db.users.insert_one(user_doc)
     
     access_token = create_access_token(user_id, email)
-    refresh_token = create_refresh_token(user_id)
-    set_auth_cookies(response, access_token, refresh_token)
     
     return {"id": user_id, "email": email, "callsign": callsign, "role": "user", "access_token": access_token}
 
 @api_router.post("/auth/login")
-async def login(data: LoginRequest, request: Request, response: Response):
+async def login(data: LoginRequest, request: Request):
     identifier = data.email.strip()
     
     # Detect if login is by email or callsign
@@ -178,15 +169,11 @@ async def login(data: LoginRequest, request: Request, response: Response):
     await db.login_attempts.delete_one({"identifier": bf_key})
     
     access_token = create_access_token(user["id"], user["email"])
-    refresh_token = create_refresh_token(user["id"])
-    set_auth_cookies(response, access_token, refresh_token)
     
     return {"id": user["id"], "email": user["email"], "callsign": user["callsign"], "role": user.get("role", "user"), "access_token": access_token}
 
 @api_router.post("/auth/logout")
-async def logout(response: Response):
-    response.delete_cookie("access_token", path="/")
-    response.delete_cookie("refresh_token", path="/")
+async def logout():
     return {"message": "Déconnexion réussie"}
 
 @api_router.get("/auth/me")
@@ -195,10 +182,11 @@ async def get_me(request: Request):
     return user
 
 @api_router.post("/auth/refresh")
-async def refresh_token(request: Request, response: Response):
-    token = request.cookies.get("refresh_token")
+async def refresh_token_endpoint(request: Request):
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header[7:] if auth_header.startswith("Bearer ") else None
     if not token:
-        raise HTTPException(status_code=401, detail="No refresh token")
+        raise HTTPException(status_code=401, detail="No token")
     try:
         payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
         if payload.get("type") != "refresh":
@@ -207,8 +195,7 @@ async def refresh_token(request: Request, response: Response):
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
         access_token = create_access_token(user["id"], user["email"])
-        response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=86400, path="/")
-        return {"message": "Token refreshed"}
+        return {"access_token": access_token, "message": "Token refreshed"}
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Refresh token expired")
     except jwt.InvalidTokenError:
