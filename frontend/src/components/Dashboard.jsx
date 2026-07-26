@@ -34,7 +34,12 @@ export default function Dashboard() {
   const [pendingCount, setPendingCount] = useState(0);
   const [activeLogbook, setActiveLogbook] = useState(() => {
     const saved = localStorage.getItem("qso_active_logbook");
-    return saved && ["radioamateur", "cb", "swl"].includes(saved) ? saved : "radioamateur";
+    if (saved && ["radioamateur", "cb", "swl"].includes(saved)) return saved;
+    // Default to user's type for new users
+    const userType = user?.user_type;
+    if (userType === "cibiste") return "cb";
+    if (userType === "swl") return "swl";
+    return "radioamateur";
   });
 
   const switchLogbook = (lb) => {
