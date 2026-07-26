@@ -27,7 +27,19 @@
     "logout_success": "Logged out",
     "connected_as": "Logged in as",
     "server_waking": "Server starting, retrying...",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "user_type": "You are",
+    "type_radioamateur": "Ham Radio",
+    "type_cibiste": "CB Radio",
+    "type_swl": "SWL (Listener)",
+    "callsign_radio": "Ham radio callsign",
+    "callsign_cb": "CB callsign",
+    "callsign_swl": "SWL callsign",
+    "no_callsign_btn": "I don't have a callsign yet",
+    "has_callsign_btn": "I have a callsign",
+    "callsign_radio_placeholder": "W1ABC",
+    "callsign_cb_placeholder": "14CB001",
+    "callsign_swl_placeholder": "SWL-XX-XXX"
   },
   "forgot": {
     "title": "Forgot password",
@@ -80,6 +92,12 @@
     "support_qso_pocket": "Support QSO Pocket",
     "support_message": "Thank you for supporting QSO Pocket development!\n\nEvery donation helps improve the app and fund hosting.",
     "created_by": "Created by F4MVD (Jonathan Zils)"
+  },
+  "logbook": {
+    "radioamateur": "📡 Ham Radio",
+    "cb": "🚛 CB",
+    "swl": "🎧 SWL",
+    "select": "Active logbook"
   },
   "qso": {
     "new_qso": "New QSO",
@@ -137,7 +155,10 @@
     "email_changed": "Email changed",
     "fill_all": "Please fill in all fields",
     "language": "Language",
-    "back": "Back"
+    "back": "Back",
+    "my_callsigns": "My callsigns",
+    "save_callsigns": "Save callsigns",
+    "callsigns_updated": "Callsigns updated"
   },
   "wavelog": {
     "title": "Wavelog — Sync",

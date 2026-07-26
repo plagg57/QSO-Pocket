@@ -11,11 +11,16 @@ import { getFlagUrl, getCountryName } from "@/utils/callsignFlags";
 import { getBand } from "@/utils/bands";
 import { addPendingQSO } from "@/utils/offlineQueue";
 
-export default function AddQSOModal({ callsign, prefillName, onClose, onAdded }) {
+const CB_MODES = ["FM", "SSB", "AM"];
+
+export default function AddQSOModal({ callsign, prefillName, onClose, onAdded, logbook = "radioamateur" }) {
   const { t } = useTranslation();
   const now = new Date();
   const utcHH = String(now.getUTCHours()).padStart(2, "0");
   const utcMM = String(now.getUTCMinutes()).padStart(2, "0");
+  const isSWL = logbook === "swl";
+  const isCB = logbook === "cb";
+  const activeModes = isCB ? CB_MODES : MODES;
 
   const [formData, setFormData] = useState({
     callsign: callsign || "",
@@ -59,6 +64,7 @@ export default function AddQSOModal({ callsign, prefillName, onClose, onAdded })
       ...formData,
       callsign: formData.callsign.toUpperCase(),
       frequency: parseFloat(formData.frequency),
+      logbook: logbook,
     };
     try {
       await axios.post(`${API}/qso`, payload);
@@ -134,7 +140,7 @@ export default function AddQSOModal({ callsign, prefillName, onClose, onAdded })
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Broadcast size={14} weight="bold" /> {t("qso.mode")}</Label>
             <div className="flex flex-wrap gap-2" data-testid="qso-mode-select">
-              {MODES.map((m) => (
+              {activeModes.map((m) => (
                 <button key={m} type="button" onClick={() => setFormData({ ...formData, mode: formData.mode === m ? "" : m })}
                   className={`px-3 py-1.5 text-xs font-mono uppercase tracking-wider border transition-all duration-150 ${formData.mode === m ? "bg-amber-500 text-black border-amber-500 font-bold" : "bg-[#09090b] text-zinc-400 border-zinc-700 hover:border-zinc-500"}`}>
                   {m}
@@ -147,12 +153,14 @@ export default function AddQSOModal({ callsign, prefillName, onClose, onAdded })
             <Input data-testid="qso-name-input" type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder={t("qso.name_placeholder")} className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">{t("qso.rst_sent")}</Label>
-              <Input data-testid="qso-rst-sent-input" value={formData.rst_sent} onChange={(e) => setFormData({ ...formData, rst_sent: e.target.value })}
-                placeholder="59" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
-            </div>
+          <div className={`grid ${isSWL ? "grid-cols-1" : "grid-cols-2"} gap-3`}>
+            {!isSWL && (
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">{t("qso.rst_sent")}</Label>
+                <Input data-testid="qso-rst-sent-input" value={formData.rst_sent} onChange={(e) => setFormData({ ...formData, rst_sent: e.target.value })}
+                  placeholder="59" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+              </div>
+            )}
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">{t("qso.rst_received")}</Label>
               <Input data-testid="qso-rst-received-input" value={formData.rst_received} onChange={(e) => setFormData({ ...formData, rst_received: e.target.value })}
@@ -167,11 +175,13 @@ export default function AddQSOModal({ callsign, prefillName, onClose, onAdded })
               className="flex w-full bg-[#09090b] border border-zinc-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-zinc-100 rounded-none font-mono text-sm px-3 py-2 placeholder:text-zinc-600 resize-none" />
           </div>
           <div className="flex gap-4 py-1">
-            <label className="flex items-center gap-2 cursor-pointer" data-testid="qsl-sent-toggle">
-              <input type="checkbox" checked={formData.qsl_sent} onChange={(e) => setFormData({ ...formData, qsl_sent: e.target.checked })}
-                className="w-4 h-4 accent-amber-500 bg-[#09090b] border-zinc-700 rounded-none" />
-              <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider">{t("qso.qsl_sent")}</span>
-            </label>
+            {!isSWL && (
+              <label className="flex items-center gap-2 cursor-pointer" data-testid="qsl-sent-toggle">
+                <input type="checkbox" checked={formData.qsl_sent} onChange={(e) => setFormData({ ...formData, qsl_sent: e.target.checked })}
+                  className="w-4 h-4 accent-amber-500 bg-[#09090b] border-zinc-700 rounded-none" />
+                <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider">{t("qso.qsl_sent")}</span>
+              </label>
+            )}
             <label className="flex items-center gap-2 cursor-pointer" data-testid="qsl-received-toggle">
               <input type="checkbox" checked={formData.qsl_received} onChange={(e) => setFormData({ ...formData, qsl_received: e.target.checked })}
                 className="w-4 h-4 accent-amber-500 bg-[#09090b] border-zinc-700 rounded-none" />

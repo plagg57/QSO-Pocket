@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration 11 — Multi-logbook / multi-user-type feature validated end-to-end. Created /app/backend/tests/test_logbooks.py (14 tests, all pass) covering registration (radioamateur/cibiste/swl + no_callsign SWL-FR-XXXX auto-generation + validation errors), login response shape (user_type, callsigns), QSO logbook filtering (POST + /grouped + /stats/total + list), and callsigns PUT (/auth/callsigns) with duplicate rejection. Frontend UI verified via Playwright: logbook selector shows 3 options (📡 Ham Radio / 🚛 CB / 🎧 SWL), switching Ham→CB shows 0 QSOs, switching back shows 7 callsigns, CB AddQSOModal exposes only FM/SSB/AM, SWL AddQSOModal hides rst_sent + qsl_sent and keeps rst_received + qsl_received, Ham modal shows 14 modes. Profile page exposes 3 callsign inputs (radio/cb/swl). SWL registration with 'no callsign' flow generates SWL-FR-XXXX and logs the user in.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/qso/stats/total?logbook=bogus", "issue": "Invalid logbook query is silently ignored (no filter applied → returns ALL QSOs across logbooks) instead of 400 or defaulting to radioamateur as the ?logbook param default suggests. Same for /qso and /qso/grouped. Low risk since UI only sends valid values, but the docstring/param default is misleading."},
+      {"endpoint": "POST /api/qso/import/adif (multipart)", "issue": "Does NOT accept or persist a 'logbook' field, so multipart ADIF imports always land in radioamateur (missing logbook key → mongo doc has no logbook → won't match /qso?logbook=… queries). Only the /qso/import/adif-text JSON endpoint supports logbook. Recommend adding a Form(...) logbook param to the multipart endpoint too, and setting logbook='radioamateur' default explicitly on the doc."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "SWL registration → dashboard", "issue": "After registering as SWL, activeLogbook defaults to 'radioamateur' (empty logbook) instead of the user's own type ('swl'). User has to manually switch to SWL to see their logbook. Suggest: on login/register, initialize activeLogbook from user.user_type when localStorage is empty.", "affected_selectors": ["[data-testid=\"logbook-selector\"]"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_logbooks.py",
+    "/app/test_reports/pytest/pytest_logbooks.xml"
+  ],
+  "action_items": [
+    "(Minor) Default activeLogbook to user.user_type ('cb' → 'cb', 'swl' → 'swl', 'radioamateur' → 'radioamateur') on first login when no localStorage value exists, otherwise SWL/CB users see an empty Ham Radio logbook right after registration.",
+    "(Minor) /api/qso/import/adif multipart endpoint should accept a logbook form field and persist it on each doc; currently only /qso/import/adif-text supports per-logbook import.",
+    "(Minor) Consider rejecting or defaulting invalid ?logbook= values on the QSO list/grouped/stats endpoints instead of silently ignoring them."
+  ],
+  "critical_code_review_comments": [
+    "server.py is now 1329 lines — split into modules (auth, qso, admin, wavelog, imports) per >700-line guideline.",
+    "In /api/auth/register: callsign uniqueness check treats empty string as a legitimate candidate. Because migrated users have empty strings in callsigns.cb/swl, the $or lookup on new-users still works only because the input callsign is enforced ≥2 chars. Still, defensive: skip empty values in the $or list.",
+    "get_current_user backfills callsigns dict from user['callsign'] only into 'radioamateur' key — for legacy CB or SWL users (pre-migration) this could mis-attribute. Migration script apparently already ran; fine, but consider using user_type when synthesizing the fallback."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_logbooks.py"
+  ],
+  "success_rate": {"backend": "100% (14/14 pytest)", "frontend": "100% (all reviewed flows)"},
+  "test_credentials": "admin@example.com / admin123 (F0ADMIN) — matches /app/memory/test_credentials.md. Test users created with TEST_/test_ prefix (throwaway).",
+  "seed_data_creation": "Several test_*@test.local users registered during pytest & Playwright runs (radioamateur/cibiste/swl + one SWL-FR-XXXX auto-gen). Each has a few TEST QSOs across the 3 logbooks. Not cleaned up — safe to purge by prefix 'test_' if desired.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Multi-logbook feature is functionally complete and stable. If main agent addresses the SWL default-logbook UX suggestion, verify by registering a fresh SWL user and asserting Dashboard's logbook-selector value === 'swl' immediately after registration. Backend regression coverage now includes test_auth_no_cookies.py, test_password_reset.py, test_pwa_wavelog.py, test_requirements_cleanup.py, and the new test_logbooks.py — all pass against https://radio-memory.preview.emergentagent.com.",
+  "rca of the issue": "N/A — no bug to root-cause. Feature verification only."
+}

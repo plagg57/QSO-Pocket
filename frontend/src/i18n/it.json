@@ -27,7 +27,19 @@
     "logout_success": "Disconnesso",
     "connected_as": "Connesso come",
     "server_waking": "Server in avvio, nuovo tentativo...",
-    "loading": "Caricamento..."
+    "loading": "Caricamento...",
+    "user_type": "Sei un",
+    "type_radioamateur": "Radioamatore",
+    "type_cibiste": "CB Radio",
+    "type_swl": "SWL (Ascoltatore)",
+    "callsign_radio": "Nominativo radioamatore",
+    "callsign_cb": "Nominativo CB",
+    "callsign_swl": "Nominativo SWL",
+    "no_callsign_btn": "Non ho ancora un nominativo",
+    "has_callsign_btn": "Ho un nominativo",
+    "callsign_radio_placeholder": "IU1ABC",
+    "callsign_cb_placeholder": "14CB001",
+    "callsign_swl_placeholder": "SWL-IT-XXX"
   },
   "forgot": {
     "title": "Password dimenticata",
@@ -137,7 +149,10 @@
     "email_changed": "Email cambiata",
     "fill_all": "Compilare tutti i campi",
     "language": "Lingua",
-    "back": "Indietro"
+    "back": "Indietro",
+    "my_callsigns": "I miei nominativi",
+    "save_callsigns": "Salva nominativi",
+    "callsigns_updated": "Nominativi aggiornati"
   },
   "wavelog": {
     "title": "Wavelog — Sincronizzazione",
@@ -208,5 +223,11 @@
     "sync_error": "Errore sincronizzazione offline",
     "pending": "QSO in attesa",
     "back_online": "Di nuovo online"
+  },
+  "logbook": {
+    "radioamateur": "📡 Radioamatore",
+    "cb": "🚛 CB",
+    "swl": "🎧 SWL",
+    "select": "Logbook attivo"
   }
 }

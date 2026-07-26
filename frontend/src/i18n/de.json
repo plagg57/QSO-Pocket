@@ -27,7 +27,19 @@
     "logout_success": "Abgemeldet",
     "connected_as": "Angemeldet als",
     "server_waking": "Server wird gestartet, neuer Versuch...",
-    "loading": "Laden..."
+    "loading": "Laden...",
+    "user_type": "Sie sind",
+    "type_radioamateur": "Amateurfunker",
+    "type_cibiste": "CB-Funker",
+    "type_swl": "SWL (Hörer)",
+    "callsign_radio": "Amateurfunk-Rufzeichen",
+    "callsign_cb": "CB-Rufzeichen",
+    "callsign_swl": "SWL-Rufzeichen",
+    "no_callsign_btn": "Ich habe noch kein Rufzeichen",
+    "has_callsign_btn": "Ich habe ein Rufzeichen",
+    "callsign_radio_placeholder": "DL1ABC",
+    "callsign_cb_placeholder": "14CB001",
+    "callsign_swl_placeholder": "SWL-DE-XXX"
   },
   "forgot": {
     "title": "Passwort vergessen",
@@ -137,7 +149,10 @@
     "email_changed": "E-Mail geändert",
     "fill_all": "Bitte alle Felder ausfüllen",
     "language": "Sprache",
-    "back": "Zurück"
+    "back": "Zurück",
+    "my_callsigns": "Meine Rufzeichen",
+    "save_callsigns": "Rufzeichen speichern",
+    "callsigns_updated": "Rufzeichen aktualisiert"
   },
   "wavelog": {
     "title": "Wavelog — Synchronisation",
@@ -208,5 +223,11 @@
     "sync_error": "Offline-Sync-Fehler",
     "pending": "ausstehende(s) QSO(s)",
     "back_online": "Wieder online"
+  },
+  "logbook": {
+    "radioamateur": "📡 Amateurfunk",
+    "cb": "🚛 CB",
+    "swl": "🎧 SWL",
+    "select": "Aktives Logbuch"
   }
 }

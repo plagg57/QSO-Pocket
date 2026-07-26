@@ -78,7 +78,9 @@ async def get_current_user(request: Request) -> dict:
             "email": user["email"],
             "callsign": user["callsign"],
             "name": user.get("name", ""),
-            "role": user.get("role", "user")
+            "role": user.get("role", "user"),
+            "user_type": user.get("user_type", "radioamateur"),
+            "callsigns": user.get("callsigns", {"radioamateur": user["callsign"], "cb": "", "swl": ""})
         }
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
@@ -90,10 +92,15 @@ app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
 # === Auth Models ===
+VALID_USER_TYPES = ["radioamateur", "cibiste", "swl"]
+VALID_LOGBOOKS = ["radioamateur", "cb", "swl"]
+
 class RegisterRequest(BaseModel):
     email: str
     password: str = Field(..., min_length=6)
-    callsign: str = Field(..., min_length=2, max_length=20)
+    callsign: str = Field("", max_length=20)
+    user_type: str = Field("radioamateur")
+    no_callsign: bool = False  # For SWL without callsign
 
 class LoginRequest(BaseModel):
     email: str
@@ -104,45 +111,90 @@ class UserResponse(BaseModel):
     email: str
     callsign: str
     role: str
+    user_type: str
+    callsigns: dict
 
 # === Auth Endpoints ===
 @api_router.post("/auth/register")
 async def register(data: RegisterRequest):
     email = data.email.lower().strip()
-    callsign = data.callsign.upper().strip()
-    
+    user_type = data.user_type.lower().strip()
+    if user_type not in VALID_USER_TYPES:
+        raise HTTPException(status_code=400, detail="Type invalide. Choisir: radioamateur, cibiste, swl")
+
+    # Handle callsign based on user type
+    if user_type == "swl" and data.no_callsign:
+        # Generate temporary SWL ID: SWL-FR-XXXX
+        import random
+        while True:
+            temp_id = f"SWL-FR-{random.randint(1000, 9999)}"
+            if not await db.users.find_one({"callsign": temp_id}):
+                break
+        callsign = temp_id
+    else:
+        callsign = data.callsign.upper().strip()
+        if len(callsign) < 2:
+            raise HTTPException(status_code=400, detail="Indicatif requis (min. 2 caractères)")
+
     existing_email = await db.users.find_one({"email": email})
     if existing_email:
         raise HTTPException(status_code=400, detail="Cet email est déjà utilisé")
-    
-    existing_callsign = await db.users.find_one({"callsign": callsign})
+
+    # Check callsign uniqueness across all users' callsigns
+    existing_callsign = await db.users.find_one({"$or": [
+        {"callsign": callsign},
+        {"callsigns.radioamateur": callsign},
+        {"callsigns.cb": callsign},
+        {"callsigns.swl": callsign}
+    ]})
     if existing_callsign:
         raise HTTPException(status_code=400, detail="Cet indicatif est déjà utilisé")
-    
+
     user_id = str(uuid.uuid4())
+    # Build callsigns dict with the primary callsign
+    callsigns = {"radioamateur": "", "cb": "", "swl": ""}
+    if user_type == "radioamateur":
+        callsigns["radioamateur"] = callsign
+    elif user_type == "cibiste":
+        callsigns["cb"] = callsign
+    elif user_type == "swl":
+        callsigns["swl"] = callsign
+
     user_doc = {
         "id": user_id,
         "email": email,
         "password_hash": hash_password(data.password),
-        "callsign": callsign,
+        "callsign": callsign,  # Primary/display callsign
+        "callsigns": callsigns,
+        "user_type": user_type,
         "role": "user",
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.users.insert_one(user_doc)
-    
+
     access_token = create_access_token(user_id, email)
-    
-    return {"id": user_id, "email": email, "callsign": callsign, "role": "user", "access_token": access_token}
+
+    return {
+        "id": user_id, "email": email, "callsign": callsign,
+        "role": "user", "user_type": user_type, "callsigns": callsigns,
+        "access_token": access_token
+    }
 
 @api_router.post("/auth/login")
 async def login(data: LoginRequest, request: Request):
     identifier = data.email.strip()
     
-    # Detect if login is by email or callsign
+    # Detect if login is by email or callsign (search all callsign fields)
     if "@" in identifier:
         user = await db.users.find_one({"email": identifier.lower()})
     else:
-        user = await db.users.find_one({"callsign": identifier.upper()})
+        upper_id = identifier.upper()
+        user = await db.users.find_one({"$or": [
+            {"callsign": upper_id},
+            {"callsigns.radioamateur": upper_id},
+            {"callsigns.cb": upper_id},
+            {"callsigns.swl": upper_id}
+        ]})
     
     # Brute force check
     ip = request.client.host if request.client else "unknown"
@@ -170,7 +222,12 @@ async def login(data: LoginRequest, request: Request):
     
     access_token = create_access_token(user["id"], user["email"])
     
-    return {"id": user["id"], "email": user["email"], "callsign": user["callsign"], "role": user.get("role", "user"), "access_token": access_token}
+    return {
+        "id": user["id"], "email": user["email"], "callsign": user["callsign"],
+        "role": user.get("role", "user"), "user_type": user.get("user_type", "radioamateur"),
+        "callsigns": user.get("callsigns", {"radioamateur": user["callsign"], "cb": "", "swl": ""}),
+        "access_token": access_token
+    }
 
 @api_router.post("/auth/logout")
 async def logout():
@@ -328,6 +385,41 @@ async def change_email(data: ChangeEmailRequest, request: Request):
     await db.users.update_one({"id": user_info["id"]}, {"$set": {"email": new_email}})
     return {"message": "Email modifié avec succès", "email": new_email}
 
+
+# === Callsign Management ===
+class UpdateCallsignsRequest(BaseModel):
+    radioamateur: Optional[str] = None
+    cb: Optional[str] = None
+    swl: Optional[str] = None
+
+@api_router.put("/auth/callsigns")
+async def update_callsigns(data: UpdateCallsignsRequest, request: Request):
+    user = await get_current_user(request)
+    updates = {}
+    for field in ["radioamateur", "cb", "swl"]:
+        val = getattr(data, field, None)
+        if val is not None:
+            val = val.upper().strip()
+            if val:
+                # Check uniqueness
+                existing = await db.users.find_one({"$or": [
+                    {"callsign": val},
+                    {f"callsigns.{field}": val}
+                ], "id": {"$ne": user["id"]}})
+                if existing:
+                    raise HTTPException(status_code=400, detail=f"L'indicatif {val} est déjà utilisé")
+            updates[f"callsigns.{field}"] = val
+    if not updates:
+        raise HTTPException(status_code=400, detail="Aucun indicatif à modifier")
+    await db.users.update_one({"id": user["id"]}, {"$set": updates})
+    # Update primary callsign if needed
+    updated_user = await db.users.find_one({"id": user["id"]})
+    callsigns = updated_user.get("callsigns", {})
+    primary = callsigns.get("radioamateur") or callsigns.get("cb") or callsigns.get("swl") or updated_user["callsign"]
+    if primary != updated_user["callsign"]:
+        await db.users.update_one({"id": user["id"]}, {"$set": {"callsign": primary}})
+    return {"message": "Indicatifs mis à jour", "callsigns": callsigns}
+
 # === QSO Check (anti-doublon) ===
 @api_router.get("/qso/check/{callsign}")
 async def check_callsign_exists(callsign: str, request: Request):
@@ -344,7 +436,7 @@ async def check_callsign_exists(callsign: str, request: Request):
 class QSOCreate(BaseModel):
     callsign: str = Field(..., min_length=1, max_length=20)
     date: str
-    time_utc: str = Field("", max_length=5)  # HH:MM format
+    time_utc: str = Field("", max_length=5)
     frequency: float = Field(..., gt=0)
     name: str = Field("", max_length=100)
     mode: str = Field("", max_length=20)
@@ -353,6 +445,7 @@ class QSOCreate(BaseModel):
     qsl_received: bool = False
     rst_sent: str = Field("", max_length=10)
     rst_received: str = Field("", max_length=10)
+    logbook: str = Field("radioamateur")
 
 class QSOUpdate(BaseModel):
     callsign: Optional[str] = None
@@ -371,6 +464,7 @@ class QSOUpdate(BaseModel):
 @api_router.post("/qso")
 async def create_qso(qso_data: QSOCreate, request: Request):
     user = await get_current_user(request)
+    logbook = qso_data.logbook if qso_data.logbook in VALID_LOGBOOKS else "radioamateur"
     
     qso_id = str(uuid.uuid4())
     doc = {
@@ -386,6 +480,7 @@ async def create_qso(qso_data: QSOCreate, request: Request):
         "qsl_received": qso_data.qsl_received,
         "rst_sent": qso_data.rst_sent or "",
         "rst_received": qso_data.rst_received or "",
+        "logbook": logbook,
         "owner_id": user["id"],
         "owner_callsign": user["callsign"],
         "created_at": datetime.now(timezone.utc).isoformat()
@@ -402,9 +497,11 @@ async def create_qso(qso_data: QSOCreate, request: Request):
 
 # Grouped list: one entry per callsign
 @api_router.get("/qso/grouped")
-async def get_qsos_grouped(request: Request, search: Optional[str] = None, band: Optional[str] = None):
+async def get_qsos_grouped(request: Request, search: Optional[str] = None, band: Optional[str] = None, logbook: Optional[str] = "radioamateur"):
     user = await get_current_user(request)
     match_stage = {"owner_id": user["id"]}
+    if logbook and logbook in VALID_LOGBOOKS:
+        match_stage["logbook"] = logbook
     if search:
         match_stage["$or"] = [
             {"callsign": {"$regex": search, "$options": "i"}},
@@ -678,6 +775,7 @@ async def import_adif(request: Request, file: UploadFile = File(...)):
 # Alternative import: accept ADIF content as JSON text (no multipart needed)
 class AdifTextImport(BaseModel):
     content: str
+    logbook: str = "radioamateur"
 
 @api_router.post("/qso/import/adif-text")
 async def import_adif_text(data: AdifTextImport, request: Request):
@@ -692,6 +790,7 @@ async def import_adif_text(data: AdifTextImport, request: Request):
         if not qso["callsign"] or qso["frequency"] <= 0:
             skipped += 1
             continue
+        logbook = data.logbook if data.logbook in VALID_LOGBOOKS else "radioamateur"
         doc = {
             "id": str(uuid.uuid4()),
             "callsign": qso["callsign"],
@@ -705,6 +804,7 @@ async def import_adif_text(data: AdifTextImport, request: Request):
             "qsl_received": qso.get("qsl_received", False),
             "rst_sent": qso.get("rst_sent", ""),
             "rst_received": qso.get("rst_received", ""),
+            "logbook": logbook,
             "owner_id": user["id"],
             "owner_callsign": user["callsign"],
             "created_at": datetime.now(timezone.utc).isoformat()
@@ -734,18 +834,23 @@ def freq_to_band(freq_mhz):
     return None
 
 @api_router.get("/qso/stats/total")
-async def get_qso_stats(request: Request):
+async def get_qso_stats(request: Request, logbook: Optional[str] = "radioamateur"):
     user = await get_current_user(request)
-    total_qsos = await db.qsos.count_documents({"owner_id": user["id"]})
-    unique_callsigns = await db.qsos.distinct("callsign", {"owner_id": user["id"]})
+    query = {"owner_id": user["id"]}
+    if logbook and logbook in VALID_LOGBOOKS:
+        query["logbook"] = logbook
+    total_qsos = await db.qsos.count_documents(query)
+    unique_callsigns = await db.qsos.distinct("callsign", query)
     return {"total_qsos": total_qsos, "total_callsigns": len(unique_callsigns)}
 
 @api_router.get("/qso")
-async def get_qsos(request: Request, search: Optional[str] = None):
+async def get_qsos(request: Request, search: Optional[str] = None, logbook: Optional[str] = "radioamateur"):
     user = await get_current_user(request)
     query = {"owner_id": user["id"]}
+    if logbook and logbook in VALID_LOGBOOKS:
+        query["logbook"] = logbook
     if search:
-        query = {"$and": [{"owner_id": user["id"]}, {"$or": [
+        query = {"$and": [query, {"$or": [
             {"callsign": {"$regex": search, "$options": "i"}},
             {"name": {"$regex": search, "$options": "i"}}
         ]}]}

@@ -32,6 +32,18 @@ export default function Dashboard() {
   const [showProfile, setShowProfile] = useState(false);
   const [bandFilter, setBandFilter] = useState("");
   const [pendingCount, setPendingCount] = useState(0);
+  const [activeLogbook, setActiveLogbook] = useState(() => {
+    const saved = localStorage.getItem("qso_active_logbook");
+    return saved && ["radioamateur", "cb", "swl"].includes(saved) ? saved : "radioamateur";
+  });
+
+  const switchLogbook = (lb) => {
+    setActiveLogbook(lb);
+    localStorage.setItem("qso_active_logbook", lb);
+    setSelectedCallsign(null);
+    setSearchTerm("");
+    setBandFilter("");
+  };
 
   const refreshPendingCount = useCallback(async () => {
     try { setPendingCount(await getPendingCount()); } catch {}
@@ -75,19 +87,20 @@ export default function Dashboard() {
       const params = new URLSearchParams();
       if (searchTerm) params.append("search", searchTerm);
       if (bandFilter) params.append("band", bandFilter);
+      params.append("logbook", activeLogbook);
       const res = await axios.get(`${API}/qso/grouped?${params.toString()}`);
       setGrouped(res.data);
     } catch (error) {
       if (error.response?.status !== 401) toast.error(t("common.error"));
     } finally { setLoading(false); }
-  }, [searchTerm, bandFilter, t]);
+  }, [searchTerm, bandFilter, activeLogbook, t]);
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/qso/stats/total`);
+      const res = await axios.get(`${API}/qso/stats/total?logbook=${activeLogbook}`);
       setStats(res.data);
     } catch {}
-  }, []);
+  }, [activeLogbook]);
 
   useEffect(() => { fetchGrouped(); fetchStats(); }, [fetchGrouped, fetchStats]);
 
@@ -116,8 +129,15 @@ export default function Dashboard() {
       <OfflineBanner pendingCount={pendingCount} />
       <div className={`relative z-10 max-w-[1100px] mx-auto p-3 sm:p-4 md:p-6 lg:p-8 ${(!isOnline || pendingCount > 0) ? "pt-12" : ""}`}>
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-zinc-800 pb-4 mb-6 gap-3" data-testid="app-header">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <img src={LOGO_URL} alt="QSO Pocket" className="h-8 sm:h-10" />
+            <select value={activeLogbook} onChange={(e) => switchLogbook(e.target.value)} data-testid="logbook-selector"
+              className="bg-[#121212] border border-zinc-700 text-zinc-100 font-mono text-xs sm:text-sm px-3 py-1.5 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 appearance-none cursor-pointer"
+              style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a1a1aa' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center", paddingRight: "28px" }}>
+              <option value="radioamateur">{t("logbook.radioamateur")}</option>
+              <option value="cb">{t("logbook.cb")}</option>
+              <option value="swl">{t("logbook.swl")}</option>
+            </select>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
             <div className="font-mono text-xs sm:text-sm text-amber-500 tracking-wide" data-testid="user-callsign-display">
@@ -148,7 +168,7 @@ export default function Dashboard() {
         ) : showAdmin && user?.role === "admin" ? (
           <AdminPanel onBack={() => setShowAdmin(false)} />
         ) : selectedCallsign ? (
-          <ContactDetail callsign={selectedCallsign} onBack={() => { setSelectedCallsign(null); fetchGrouped(); fetchStats(); }} />
+          <ContactDetail callsign={selectedCallsign} logbook={activeLogbook} onBack={() => { setSelectedCallsign(null); fetchGrouped(); fetchStats(); }} />
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6">
@@ -238,7 +258,7 @@ export default function Dashboard() {
             {stats.total_qsos > 0 && (
               <button onClick={async () => {
                 try {
-                  const res = await axios.get(`${API}/qso`);
+                  const res = await axios.get(`${API}/qso?logbook=${activeLogbook}`);
                   const qsos = res.data;
                   
                   let adif = "ADIF Export from QSO Pocket\n";
@@ -289,7 +309,7 @@ export default function Dashboard() {
                   if (!file) return;
                   try {
                     const text = await file.text();
-                    const { data } = await axios.post(`${API}/qso/import/adif-text`, { content: text });
+                    const { data } = await axios.post(`${API}/qso/import/adif-text`, { content: text, logbook: activeLogbook });
                     toast.success(`${data.imported} ${t("dashboard.imported")}${data.skipped ? `, ${data.skipped} ${t("dashboard.skipped")}` : ""}`);
                     fetchGrouped();
                     fetchStats();
@@ -327,7 +347,7 @@ export default function Dashboard() {
         )}
 
         {showAddModal && (
-          <AddQSOModal callsign={addCallsign} onClose={() => setShowAddModal(false)} onAdded={handleAdded} />
+          <AddQSOModal callsign={addCallsign} logbook={activeLogbook} onClose={() => setShowAddModal(false)} onAdded={handleAdded} />
         )}
       </div>
     </div>

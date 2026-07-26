@@ -46,8 +46,14 @@ export function AuthProvider({ children }) {
     if (data.access_token) localStorage.setItem("qso_token", data.access_token);
     localStorage.removeItem("qso_logged_out"); setUser(data);
   };
-  const register = async (email, password, callsign) => {
-    const { data } = await axios.post(`${API}/auth/register`, { email, password, callsign });
+  const register = async (email, password, callsign, userType, noCallsign) => {
+    const payload = { email, password, user_type: userType || "radioamateur" };
+    if (noCallsign) {
+      payload.no_callsign = true;
+    } else {
+      payload.callsign = callsign;
+    }
+    const { data } = await axios.post(`${API}/auth/register`, payload);
     if (data.access_token) localStorage.setItem("qso_token", data.access_token);
     localStorage.removeItem("qso_logged_out"); setUser(data);
   };

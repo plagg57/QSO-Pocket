@@ -27,7 +27,19 @@
     "logout_success": "Déconnexion réussie",
     "connected_as": "Connecté en tant que",
     "server_waking": "Serveur en cours de démarrage, nouvelle tentative...",
-    "loading": "Chargement..."
+    "loading": "Chargement...",
+    "user_type": "Vous êtes",
+    "type_radioamateur": "Radioamateur",
+    "type_cibiste": "Cibiste",
+    "type_swl": "SWL (Écouteur)",
+    "callsign_radio": "Indicatif radioamateur",
+    "callsign_cb": "Indicatif CB",
+    "callsign_swl": "Indicatif SWL",
+    "no_callsign_btn": "Je n'ai pas encore d'indicatif",
+    "has_callsign_btn": "J'ai un indicatif",
+    "callsign_radio_placeholder": "F4ABC",
+    "callsign_cb_placeholder": "14CB001",
+    "callsign_swl_placeholder": "SWL-FR-XXX"
   },
   "forgot": {
     "title": "Mot de passe oublié",
@@ -80,6 +92,12 @@
     "support_qso_pocket": "Soutenir QSO Pocket",
     "support_message": "Merci de soutenir le développement de QSO Pocket !\n\nChaque don contribue à améliorer l'application et à financer son hébergement.",
     "created_by": "Créé par F4MVD (Jonathan Zils)"
+  },
+  "logbook": {
+    "radioamateur": "📡 Radioamateur",
+    "cb": "🚛 CB",
+    "swl": "🎧 SWL",
+    "select": "Carnet actif"
   },
   "qso": {
     "new_qso": "Nouveau QSO",
@@ -137,7 +155,10 @@
     "email_changed": "Email modifié",
     "fill_all": "Remplissez tous les champs",
     "language": "Langue",
-    "back": "Retour"
+    "back": "Retour",
+    "my_callsigns": "Mes indicatifs",
+    "save_callsigns": "Enregistrer les indicatifs",
+    "callsigns_updated": "Indicatifs mis à jour"
   },
   "wavelog": {
     "title": "Wavelog — Synchronisation",
