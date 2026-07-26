@@ -37,11 +37,11 @@
     "callsign_swl": "SWL callsign",
     "no_callsign_btn": "I don't have an SWL callsign yet",
     "has_callsign_btn": "I have a callsign",
-    "callsign_radio_placeholder": "W1ABC",
-    "callsign_cb_placeholder": "14CB001",
-    "callsign_swl_placeholder": "SWL-XX-XXX",
-    "swl_temp_id_desc": "QSO Pocket will assign you a temporary identifier. You can replace it later with your official SWL callsign. If your country issues them, you can apply through the relevant authority.",
-    "swl_france_info": "In France, you can request an SWL callsign from Radioamateurs France."
+    "callsign_radio_placeholder": "Your callsign",
+    "callsign_cb_placeholder": "Your callsign",
+    "callsign_swl_placeholder": "Your callsign",
+    "swl_temp_id_desc": "QSO Pocket will assign you a temporary SWL identifier. You can replace it at any time with your official SWL callsign.",
+    "swl_france_info": "If your country issues official SWL callsigns, you can apply through the relevant authority.\nIn France, you can request an SWL callsign from Radioamateurs France."
   },
   "forgot": {
     "title": "Forgot password",

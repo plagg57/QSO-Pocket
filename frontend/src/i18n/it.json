@@ -37,11 +37,11 @@
     "callsign_swl": "Nominativo SWL",
     "no_callsign_btn": "Non ho ancora un nominativo SWL",
     "has_callsign_btn": "Ho un nominativo",
-    "callsign_radio_placeholder": "IU1ABC",
-    "callsign_cb_placeholder": "14CB001",
-    "callsign_swl_placeholder": "SWL-IT-XXX",
-    "swl_temp_id_desc": "QSO Pocket ti assegnerà un identificativo temporaneo. Potrai sostituirlo in seguito con il tuo nominativo SWL ufficiale. Se il tuo paese li rilascia, puoi farne richiesta presso l'ente competente.",
-    "swl_france_info": "In Francia, puoi richiedere un nominativo SWL presso Radioamateurs France."
+    "callsign_radio_placeholder": "Il tuo nominativo",
+    "callsign_cb_placeholder": "Il tuo nominativo",
+    "callsign_swl_placeholder": "Il tuo nominativo",
+    "swl_temp_id_desc": "QSO Pocket ti assegnerà un identificativo SWL temporaneo. Potrai sostituirlo in qualsiasi momento con il tuo nominativo SWL ufficiale.",
+    "swl_france_info": "Se il tuo paese rilascia nominativi SWL ufficiali, puoi farne richiesta presso l'ente competente.\nIn Francia, puoi richiedere un nominativo SWL presso Radioamateurs France."
   },
   "forgot": {
     "title": "Password dimenticata",

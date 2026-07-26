@@ -37,11 +37,11 @@
     "callsign_swl": "Indicatif SWL",
     "no_callsign_btn": "Je n'ai pas encore d'indicatif SWL",
     "has_callsign_btn": "J'ai un indicatif",
-    "callsign_radio_placeholder": "F4ABC",
-    "callsign_cb_placeholder": "14CB001",
-    "callsign_swl_placeholder": "SWL-FR-XXX",
-    "swl_temp_id_desc": "QSO Pocket vous attribuera un identifiant temporaire. Vous pourrez le remplacer plus tard par votre indicatif SWL officiel. Si votre pays en délivre, vous pouvez en faire la demande auprès de l'organisme compétent.",
-    "swl_france_info": "En France, vous pouvez demander un identifiant SWL auprès de Radioamateurs France."
+    "callsign_radio_placeholder": "Votre indicatif",
+    "callsign_cb_placeholder": "Votre indicatif",
+    "callsign_swl_placeholder": "Votre indicatif",
+    "swl_temp_id_desc": "QSO Pocket vous attribuera un identifiant SWL temporaire. Vous pourrez le remplacer à tout moment par votre indicatif SWL officiel.",
+    "swl_france_info": "Si votre pays délivre des indicatifs SWL officiels, vous pouvez en faire la demande auprès de l'organisme compétent.\nEn France, vous pouvez demander un identifiant SWL auprès de Radioamateurs France."
   },
   "forgot": {
     "title": "Mot de passe oublié",
