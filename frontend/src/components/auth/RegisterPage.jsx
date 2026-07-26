@@ -95,8 +95,9 @@ export default function RegisterPage({ onSwitch }) {
                   </button>
                 )}
                 {userType === "swl" && noCallsign ? (
-                  <div className="bg-blue-500/5 border border-blue-500/20 p-3">
-                    <p className="text-xs text-blue-400 font-mono mb-2">QSO Pocket générera un identifiant SWL-FR-XXXX pour vous.</p>
+                  <div className="bg-blue-500/5 border border-blue-500/20 p-3 space-y-2">
+                    <p className="text-xs text-blue-400 font-mono">{t("auth.swl_temp_id_desc")}</p>
+                    <p className="text-xs text-zinc-500 font-mono">{t("auth.swl_france_info")}</p>
                     <button type="button" onClick={() => setNoCallsign(false)} data-testid="has-callsign-btn"
                       className="text-xs text-zinc-500 hover:text-blue-400 font-mono underline">
                       {t("auth.has_callsign_btn")}
