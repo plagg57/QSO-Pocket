@@ -41,7 +41,7 @@
     "callsign_cb_placeholder": "Ihr Rufzeichen",
     "callsign_swl_placeholder": "Ihr Rufzeichen",
     "swl_temp_id_desc": "QSO Pocket weist Ihnen eine temporäre SWL-Kennung zu. Sie können diese jederzeit durch Ihr offizielles SWL-Rufzeichen ersetzen.",
-    "swl_france_info": "Falls Ihr Land offizielle SWL-Rufzeichen vergibt, können Sie diese bei der zuständigen Behörde beantragen.\nIn Frankreich können Sie ein SWL-Rufzeichen bei Radioamateurs France beantragen."
+    "swl_france_info": "Falls Ihr Land offizielle SWL-Rufzeichen vergibt, können Sie diese bei der zuständigen Behörde beantragen."
   },
   "forgot": {
     "title": "Passwort vergessen",

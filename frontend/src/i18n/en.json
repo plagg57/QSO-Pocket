@@ -41,7 +41,7 @@
     "callsign_cb_placeholder": "Your callsign",
     "callsign_swl_placeholder": "Your callsign",
     "swl_temp_id_desc": "QSO Pocket will assign you a temporary SWL identifier. You can replace it at any time with your official SWL callsign.",
-    "swl_france_info": "If your country issues official SWL callsigns, you can apply through the relevant authority.\nIn France, you can request an SWL callsign from Radioamateurs France."
+    "swl_france_info": "If your country issues official SWL callsigns, you can apply through the relevant authority."
   },
   "forgot": {
     "title": "Forgot password",
