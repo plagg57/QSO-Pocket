@@ -36,7 +36,7 @@
     "callsign_cb": "Indicatif CB",
     "callsign_swl": "Indicatif SWL",
     "no_callsign_btn": "Je n'ai pas encore d'indicatif SWL",
-    "has_callsign_btn": "J'ai un indicatif",
+    "has_callsign_btn": "J'ai déjà un indicatif SWL",
     "callsign_radio_placeholder": "Votre indicatif",
     "callsign_cb_placeholder": "Votre indicatif",
     "callsign_swl_placeholder": "Votre indicatif",
@@ -160,7 +160,9 @@
     "back": "Retour",
     "my_callsigns": "Mes indicatifs",
     "save_callsigns": "Enregistrer les indicatifs",
-    "callsigns_updated": "Indicatifs mis à jour"
+    "callsigns_updated": "Indicatifs mis à jour",
+    "swl_temp_notice": "Identifiant SWL temporaire",
+    "swl_temp_notice_desc": "Vous pourrez le remplacer par votre indicatif SWL officiel à tout moment."
   },
   "wavelog": {
     "title": "Wavelog — Synchronisation",

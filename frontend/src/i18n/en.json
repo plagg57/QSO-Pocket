@@ -36,12 +36,12 @@
     "callsign_cb": "CB callsign",
     "callsign_swl": "SWL callsign",
     "no_callsign_btn": "I don't have an SWL callsign yet",
-    "has_callsign_btn": "I have a callsign",
+    "has_callsign_btn": "I already have an SWL callsign",
     "callsign_radio_placeholder": "Your callsign",
     "callsign_cb_placeholder": "Your callsign",
     "callsign_swl_placeholder": "Your callsign",
     "swl_temp_id_desc": "QSO Pocket will assign you a temporary SWL identifier. You can replace it at any time with your official SWL callsign.",
-    "swl_france_info": "If your country issues official SWL callsigns, you can apply through the relevant authority."
+    "swl_france_info": "If official SWL callsigns are available in your country, we recommend obtaining one from the appropriate national organization."
   },
   "forgot": {
     "title": "Forgot password",
@@ -160,7 +160,9 @@
     "back": "Back",
     "my_callsigns": "My callsigns",
     "save_callsigns": "Save callsigns",
-    "callsigns_updated": "Callsigns updated"
+    "callsigns_updated": "Callsigns updated",
+    "swl_temp_notice": "Temporary SWL identifier",
+    "swl_temp_notice_desc": "You can replace it with your official SWL callsign at any time."
   },
   "wavelog": {
     "title": "Wavelog — Sync",

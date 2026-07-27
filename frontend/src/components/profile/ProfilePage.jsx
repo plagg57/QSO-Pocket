@@ -96,6 +96,12 @@ export default function ProfilePage({ onBack }) {
             <Label className="text-xs font-bold uppercase tracking-[0.15em] text-zinc-500 font-mono mb-1 block">🎧 {t("auth.callsign_swl")}</Label>
             <Input value={csSwl} onChange={(e) => setCsSwl(e.target.value.toUpperCase())} data-testid="callsign-swl-input"
               placeholder={t("auth.callsign_swl_placeholder")} className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm uppercase" />
+            {csSwl && csSwl.startsWith("SWL-") && csSwl.length <= 12 && (
+              <div className="mt-2 bg-blue-500/5 border border-blue-500/20 px-3 py-2" data-testid="swl-temp-notice">
+                <p className="text-xs text-blue-400 font-mono font-bold">{t("profile.swl_temp_notice")}</p>
+                <p className="text-xs text-zinc-500 font-mono mt-0.5">{t("profile.swl_temp_notice_desc")}</p>
+              </div>
+            )}
           </div>
           <Button onClick={handleSaveCallsigns} disabled={csLoading} data-testid="save-callsigns-btn"
             className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none h-10 text-xs">

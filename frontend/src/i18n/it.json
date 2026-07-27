@@ -36,12 +36,12 @@
     "callsign_cb": "Nominativo CB",
     "callsign_swl": "Nominativo SWL",
     "no_callsign_btn": "Non ho ancora un nominativo SWL",
-    "has_callsign_btn": "Ho un nominativo",
+    "has_callsign_btn": "Ho già un nominativo SWL",
     "callsign_radio_placeholder": "Il tuo nominativo",
     "callsign_cb_placeholder": "Il tuo nominativo",
     "callsign_swl_placeholder": "Il tuo nominativo",
     "swl_temp_id_desc": "QSO Pocket ti assegnerà un identificativo SWL temporaneo. Potrai sostituirlo in qualsiasi momento con il tuo nominativo SWL ufficiale.",
-    "swl_france_info": "Se il tuo paese rilascia nominativi SWL ufficiali, puoi farne richiesta presso l'ente competente."
+    "swl_france_info": "Se nel tuo paese sono disponibili nominativi SWL ufficiali, ti consigliamo di richiederne uno presso l'organizzazione nazionale competente."
   },
   "forgot": {
     "title": "Password dimenticata",
@@ -154,7 +154,9 @@
     "back": "Indietro",
     "my_callsigns": "I miei nominativi",
     "save_callsigns": "Salva nominativi",
-    "callsigns_updated": "Nominativi aggiornati"
+    "callsigns_updated": "Nominativi aggiornati",
+    "swl_temp_notice": "Identificativo SWL temporaneo",
+    "swl_temp_notice_desc": "Potrai sostituirlo con il tuo nominativo SWL ufficiale in qualsiasi momento."
   },
   "wavelog": {
     "title": "Wavelog — Sincronizzazione",
