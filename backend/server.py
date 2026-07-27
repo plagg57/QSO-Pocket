@@ -96,6 +96,13 @@ api_router = APIRouter(prefix="/api")
 VALID_USER_TYPES = ["radioamateur", "cibiste", "swl"]
 VALID_LOGBOOKS = ["radioamateur", "cb", "swl"]
 
+def logbook_filter(logbook: str) -> dict:
+    """Build a MongoDB filter for logbook field, with backward compatibility.
+    QSOs created before multi-logbook update have no 'logbook' field — treat them as 'radioamateur'."""
+    if logbook == "radioamateur":
+        return {"$or": [{"logbook": "radioamateur"}, {"logbook": {"$exists": False}}]}
+    return {"logbook": logbook}
+
 # ITU amateur radio callsign format:
 # 1-2 letters + 1 digit + 1-4 letters (e.g. F4MVD, VE3XYZ, DL1ABC)
 # OR 1 digit + 1-2 letters + 1 digit + 1-4 letters (e.g. 9A1A, 4X4IA, 3DA0RS)
@@ -517,14 +524,15 @@ async def create_qso(qso_data: QSOCreate, request: Request):
 @api_router.get("/qso/grouped")
 async def get_qsos_grouped(request: Request, search: Optional[str] = None, band: Optional[str] = None, logbook: Optional[str] = "radioamateur"):
     user = await get_current_user(request)
-    match_stage = {"owner_id": user["id"]}
+    filters = [{"owner_id": user["id"]}]
     if logbook and logbook in VALID_LOGBOOKS:
-        match_stage["logbook"] = logbook
+        filters.append(logbook_filter(logbook))
     if search:
-        match_stage["$or"] = [
+        filters.append({"$or": [
             {"callsign": {"$regex": search, "$options": "i"}},
             {"name": {"$regex": search, "$options": "i"}}
-        ]
+        ]})
+    match_stage = {"$and": filters} if len(filters) > 1 else filters[0]
     
     # Band filter: convert band name to frequency range
     if band:
@@ -853,9 +861,10 @@ def freq_to_band(freq_mhz):
 @api_router.get("/qso/stats/total")
 async def get_qso_stats(request: Request, logbook: Optional[str] = "radioamateur"):
     user = await get_current_user(request)
-    query = {"owner_id": user["id"]}
+    filters = [{"owner_id": user["id"]}]
     if logbook and logbook in VALID_LOGBOOKS:
-        query["logbook"] = logbook
+        filters.append(logbook_filter(logbook))
+    query = {"$and": filters} if len(filters) > 1 else filters[0]
     total_qsos = await db.qsos.count_documents(query)
     unique_callsigns = await db.qsos.distinct("callsign", query)
     return {"total_qsos": total_qsos, "total_callsigns": len(unique_callsigns)}
@@ -863,14 +872,15 @@ async def get_qso_stats(request: Request, logbook: Optional[str] = "radioamateur
 @api_router.get("/qso")
 async def get_qsos(request: Request, search: Optional[str] = None, logbook: Optional[str] = "radioamateur"):
     user = await get_current_user(request)
-    query = {"owner_id": user["id"]}
+    filters = [{"owner_id": user["id"]}]
     if logbook and logbook in VALID_LOGBOOKS:
-        query["logbook"] = logbook
+        filters.append(logbook_filter(logbook))
     if search:
-        query = {"$and": [query, {"$or": [
+        filters.append({"$or": [
             {"callsign": {"$regex": search, "$options": "i"}},
             {"name": {"$regex": search, "$options": "i"}}
-        ]}]}
+        ]})
+    query = {"$and": filters} if len(filters) > 1 else filters[0]
     qsos = await db.qsos.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return qsos
 

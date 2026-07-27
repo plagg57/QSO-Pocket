@@ -1,0 +1,23 @@
+{
+  "summary": "Verified logbook_filter() backward-compatibility fix for QSOs missing 'logbook' field. Both backend (8/8 pytest) and frontend flows pass. Admin's 10 seeded QSOs (with logbook field removed to simulate production) appear correctly under Radioamateur and are excluded from CB/SWL.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_logbook_filter.py",
+    "/app/test_reports/pytest/logbook_filter.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is 1356 lines — consider splitting into routers (auth, qso, admin, adif) for maintainability.",
+    "logbook_filter() only handles missing-field fallback for 'radioamateur'; if a future default changes, this coupling should be documented via a constant DEFAULT_LOGBOOK.",
+    "Login response returns access_token in body but no auth cookie is set — mixed strategy vs. Auth-testing playbook that expects httpOnly cookies. Verify intended design."
+  ],
+  "updated_files": ["/app/backend/tests/test_logbook_filter.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@example.com / admin123",
+  "seed_data_creation": "None; used existing seeded admin QSOs (10 QSOs, 7 unique callsigns) with logbook field previously $unset by main agent to simulate production data.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Auth uses Bearer token from POST /api/auth/login (access_token in JSON body). No auth cookie is set. Frontend logbook selector is a native <select> — use page.locator('select').select_option('radioamateur'|'cb'|'swl'). Stats endpoint returns {total_qsos, total_callsigns}. All 8 backend tests in test_logbook_filter.py pass; the file is safe to reuse as a regression suite.",
+  "rca of the issue": "Before fix: MongoDB query {logbook: 'radioamateur'} did not match legacy QSOs lacking the field, so F4MVD (and all pre-multi-logbook users) saw 0 QSOs while admin panel still counted them. Fix in server.py:99 logbook_filter() returns {'$or': [{logbook:'radioamateur'},{logbook:{$exists:false}}]} so legacy documents are treated as radioamateur. CB/SWL keep strict {logbook: X} match so they remain empty. Verified via 8 pytest cases and end-to-end UI switching Ham→CB→Ham→SWL."
+}
