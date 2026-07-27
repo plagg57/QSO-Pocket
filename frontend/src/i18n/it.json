@@ -31,7 +31,7 @@
     "user_type": "Sei un",
     "type_radioamateur": "Radioamatore",
     "type_cibiste": "CB Radio",
-    "type_swl": "SWL (Ascoltatore)",
+    "type_swl": "SWL",
     "callsign_radio": "Nominativo radioamatore",
     "callsign_cb": "Nominativo CB",
     "callsign_swl": "Nominativo SWL",
@@ -41,7 +41,7 @@
     "callsign_cb_placeholder": "Il tuo nominativo",
     "callsign_swl_placeholder": "Il tuo nominativo",
     "swl_temp_id_desc": "QSO Pocket ti assegnerà un identificativo SWL temporaneo. Potrai sostituirlo in qualsiasi momento con il tuo nominativo SWL ufficiale.",
-    "swl_france_info": "Se nel tuo paese sono disponibili nominativi SWL ufficiali, ti consigliamo di richiederne uno presso l'organizzazione nazionale competente."
+    "swl_france_info": "Se nel tuo paese vengono rilasciati nominativi SWL ufficiali, ti consigliamo di richiederne uno presso l'organizzazione nazionale competente."
   },
   "forgot": {
     "title": "Password dimenticata",

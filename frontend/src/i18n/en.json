@@ -31,7 +31,7 @@
     "user_type": "You are",
     "type_radioamateur": "Ham Radio",
     "type_cibiste": "CB Radio",
-    "type_swl": "SWL (Listener)",
+    "type_swl": "SWL",
     "callsign_radio": "Ham radio callsign",
     "callsign_cb": "CB callsign",
     "callsign_swl": "SWL callsign",

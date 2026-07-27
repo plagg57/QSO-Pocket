@@ -31,7 +31,7 @@
     "user_type": "Sie sind",
     "type_radioamateur": "Amateurfunker",
     "type_cibiste": "CB-Funker",
-    "type_swl": "SWL (Hörer)",
+    "type_swl": "SWL",
     "callsign_radio": "Amateurfunk-Rufzeichen",
     "callsign_cb": "CB-Rufzeichen",
     "callsign_swl": "SWL-Rufzeichen",
@@ -40,7 +40,7 @@
     "callsign_radio_placeholder": "Ihr Rufzeichen",
     "callsign_cb_placeholder": "Ihr Rufzeichen",
     "callsign_swl_placeholder": "Ihr Rufzeichen",
-    "swl_temp_id_desc": "QSO Pocket weist Ihnen eine temporäre SWL-Kennung zu. Sie können diese jederzeit durch Ihr offizielles SWL-Rufzeichen ersetzen.",
+    "swl_temp_id_desc": "QSO Pocket erstellt für Sie eine temporäre SWL-Kennung. Sie können diese jederzeit durch Ihr offizielles SWL-Rufzeichen ersetzen.",
     "swl_france_info": "Falls in Ihrem Land offizielle SWL-Rufzeichen verfügbar sind, empfehlen wir, eines bei der zuständigen nationalen Organisation zu beantragen."
   },
   "forgot": {
