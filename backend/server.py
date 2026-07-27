@@ -18,6 +18,7 @@ import secrets
 import httpx
 import asyncio
 import resend
+import re
 
 # Resend email setup
 resend.api_key = os.environ.get("RESEND_API_KEY", "")
@@ -95,6 +96,17 @@ api_router = APIRouter(prefix="/api")
 VALID_USER_TYPES = ["radioamateur", "cibiste", "swl"]
 VALID_LOGBOOKS = ["radioamateur", "cb", "swl"]
 
+# ITU amateur radio callsign format:
+# 1-2 letters + 1 digit + 1-4 letters (e.g. F4MVD, VE3XYZ, DL1ABC)
+# OR 1 digit + 1-2 letters + 1 digit + 1-4 letters (e.g. 9A1A, 4X4IA, 3DA0RS)
+# Optional portable suffix: /P, /M, /MM, /QRP, etc.
+AMATEUR_CALLSIGN_REGEX = re.compile(r'^([A-Z]{1,2}[0-9]|[0-9][A-Z]{1,2}[0-9])[A-Z]{1,4}(/[A-Z0-9]{1,4})?$')
+
+def validate_amateur_callsign(callsign: str) -> bool:
+    """Validate amateur radio callsign against ITU format."""
+    cs = callsign.upper().strip().replace(" ", "")
+    return bool(AMATEUR_CALLSIGN_REGEX.match(cs))
+
 class RegisterRequest(BaseModel):
     email: str
     password: str = Field(..., min_length=6)
@@ -135,6 +147,9 @@ async def register(data: RegisterRequest):
         callsign = data.callsign.upper().strip()
         if len(callsign) < 2:
             raise HTTPException(status_code=400, detail="Indicatif requis (min. 2 caractères)")
+        # Validate amateur radio callsign format (ITU)
+        if user_type == "radioamateur" and not validate_amateur_callsign(callsign):
+            raise HTTPException(status_code=400, detail="Format d'indicatif radioamateur invalide. Format attendu : 1-2 lettres + 1 chiffre + 1-4 lettres (ex: F4MVD, VE3XYZ, 9A1A)")
 
     existing_email = await db.users.find_one({"email": email})
     if existing_email:
@@ -401,6 +416,9 @@ async def update_callsigns(data: UpdateCallsignsRequest, request: Request):
         if val is not None:
             val = val.upper().strip()
             if val:
+                # Validate format for radioamateur callsigns
+                if field == "radioamateur" and not validate_amateur_callsign(val):
+                    raise HTTPException(status_code=400, detail="Format d'indicatif radioamateur invalide. Format attendu : 1-2 lettres + 1 chiffre + 1-4 lettres (ex: F4MVD, VE3XYZ)")
                 # Check uniqueness
                 existing = await db.users.find_one({"$or": [
                     {"callsign": val},
@@ -665,7 +683,6 @@ async def export_adif(request: Request, token: Optional[str] = None):
     )
 
 # Import ADIF
-import re
 
 def parse_adif(content: str) -> list:
     """Parse ADIF content and return list of QSO dicts."""
