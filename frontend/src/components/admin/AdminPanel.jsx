@@ -182,7 +182,12 @@ export default function AdminPanel({ onBack }) {
           <div className="bg-[#121212] border border-zinc-800/80 p-5 mb-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xl font-bold text-amber-500 font-mono">{selectedUser.callsign}</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl font-bold text-amber-500 font-mono">{selectedUser.callsign}</span>
+                  {selectedUser.user_type === "radioamateur" && <span className="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-400 font-mono">📡 Radioamateur</span>}
+                  {selectedUser.user_type === "cibiste" && <span className="text-xs px-2 py-0.5 bg-green-500/10 text-green-400 font-mono">🚛 CB</span>}
+                  {selectedUser.user_type === "swl" && <span className="text-xs px-2 py-0.5 bg-blue-500/10 text-blue-400 font-mono">🎧 SWL</span>}
+                </div>
                 <div className="text-sm text-zinc-400 font-mono">{selectedUser.email}</div>
                 <div className="text-xs text-zinc-500 font-mono mt-1">{t("admin.registered_on")} {formatDate(selectedUser.created_at)}</div>
               </div>
@@ -254,6 +259,9 @@ export default function AdminPanel({ onBack }) {
                     <button onClick={() => viewUser(u)} className="flex-1 text-left min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-bold text-amber-500 font-mono">{u.callsign}</span>
+                        {u.user_type === "radioamateur" && <span className="text-[10px] px-1.5 py-0.5 bg-amber-500/10 text-amber-400 font-mono" data-testid="user-type-badge">📡</span>}
+                        {u.user_type === "cibiste" && <span className="text-[10px] px-1.5 py-0.5 bg-green-500/10 text-green-400 font-mono" data-testid="user-type-badge">🚛 CB</span>}
+                        {u.user_type === "swl" && <span className="text-[10px] px-1.5 py-0.5 bg-blue-500/10 text-blue-400 font-mono" data-testid="user-type-badge">🎧 SWL</span>}
                         {u.role === "admin" && <span className="text-[10px] px-1.5 py-0.5 bg-amber-500/20 text-amber-500 font-mono uppercase">Admin</span>}
                       </div>
                       <div className="text-xs text-zinc-400 font-mono">{u.email}</div>
