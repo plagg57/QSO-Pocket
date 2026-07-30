@@ -95,7 +95,8 @@
     "import_error": "Errore importazione ADIF",
     "support_qso_pocket": "Sostieni QSO Pocket",
     "support_message": "Grazie per sostenere lo sviluppo di QSO Pocket!\n\nOgni donazione aiuta a migliorare l'app e finanziare l'hosting.",
-    "created_by": "Creato da F4MVD (Jonathan Zils)"
+    "created_by": "Creato da F4MVD (Jonathan Zils)",
+    "import_wrong_file": "Seleziona un file .adi o .adif"
   },
   "qso": {
     "new_qso": "Nuovo QSO",

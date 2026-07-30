@@ -95,7 +95,8 @@
     "import_error": "ADIF import error",
     "support_qso_pocket": "Support QSO Pocket",
     "support_message": "Thank you for supporting QSO Pocket development!\n\nEvery donation helps improve the app and fund hosting.",
-    "created_by": "Created by F4MVD (Jonathan Zils)"
+    "created_by": "Created by F4MVD (Jonathan Zils)",
+    "import_wrong_file": "Please select a .adi or .adif file"
   },
   "logbook": {
     "radioamateur": "📡 Ham Radio",

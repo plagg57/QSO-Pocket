@@ -95,7 +95,8 @@
     "import_error": "Erreur import ADIF",
     "support_qso_pocket": "Soutenir QSO Pocket",
     "support_message": "Merci de soutenir le développement de QSO Pocket !\n\nChaque don contribue à améliorer l'application et à financer son hébergement.",
-    "created_by": "Créé par F4MVD (Jonathan Zils)"
+    "created_by": "Créé par F4MVD (Jonathan Zils)",
+    "import_wrong_file": "Veuillez sélectionner un fichier .adi ou .adif"
   },
   "logbook": {
     "radioamateur": "📡 Radioamateur",

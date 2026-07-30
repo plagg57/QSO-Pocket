@@ -308,10 +308,17 @@ export default function Dashboard() {
             )}
 
             <div className="mt-3 mb-20">
-              <input type="file" accept=".adi,.adif,.ADI,.ADIF,application/octet-stream,*/*" id="adif-import-input" className="hidden"
+              <input type="file" id="adif-import-input" className="hidden"
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
+                  // Validate file extension client-side
+                  const name = file.name.toLowerCase();
+                  if (!name.endsWith('.adi') && !name.endsWith('.adif')) {
+                    toast.error(t("dashboard.import_wrong_file"));
+                    e.target.value = "";
+                    return;
+                  }
                   try {
                     const text = await file.text();
                     const { data } = await axios.post(`${API}/qso/import/adif-text`, { content: text, logbook: activeLogbook });
