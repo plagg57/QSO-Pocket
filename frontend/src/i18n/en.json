@@ -96,7 +96,13 @@
     "support_qso_pocket": "Support QSO Pocket",
     "support_message": "Thank you for supporting QSO Pocket development!\n\nEvery donation helps improve the app and fund hosting.",
     "created_by": "Created by F4MVD (Jonathan Zils)",
-    "import_wrong_file": "Please select a .adi or .adif file"
+    "import_wrong_file": "Please select a .adi or .adif file",
+    "paste_adif": "Paste ADIF content",
+    "paste_adif_title": "Import by pasting",
+    "paste_adif_desc": "Open your .adi file with a text editor, copy all the content and paste it here.",
+    "paste_adif_placeholder": "Paste ADIF content here...\n\n<ADIF_VER:5>3.1.4\n<EOH>\n<CALL:5>W1AW...",
+    "paste_adif_import": "Import",
+    "paste_adif_empty": "Please paste ADIF content"
   },
   "logbook": {
     "radioamateur": "📡 Ham Radio",

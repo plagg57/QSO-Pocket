@@ -32,6 +32,8 @@ export default function Dashboard() {
   const [showProfile, setShowProfile] = useState(false);
   const [bandFilter, setBandFilter] = useState("");
   const [pendingCount, setPendingCount] = useState(0);
+  const [showPasteAdif, setShowPasteAdif] = useState(false);
+  const [pasteContent, setPasteContent] = useState("");
   const [activeLogbook, setActiveLogbook] = useState(() => {
     const saved = localStorage.getItem("qso_active_logbook");
     if (saved && ["radioamateur", "cb", "swl"].includes(saved)) return saved;
@@ -307,12 +309,11 @@ export default function Dashboard() {
               </button>
             )}
 
-            <div className="mt-3 mb-20">
+            <div className="mt-3 mb-20 space-y-2">
               <input type="file" id="adif-import-input" className="hidden"
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  // Validate file extension client-side
                   const name = file.name.toLowerCase();
                   if (!name.endsWith('.adi') && !name.endsWith('.adif')) {
                     toast.error(t("dashboard.import_wrong_file"));
@@ -337,7 +338,49 @@ export default function Dashboard() {
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#121212] hover:bg-[#1a1a1a] text-zinc-300 border border-zinc-800 font-mono text-xs uppercase tracking-wider transition-all duration-200">
                 <ArrowLeft size={16} className="text-amber-500 -rotate-90" /> {t("dashboard.import_adif")}
               </button>
+              <button onClick={() => setShowPasteAdif(true)} data-testid="paste-adif-btn"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#121212] hover:bg-[#1a1a1a] text-zinc-400 border border-zinc-800 font-mono text-xs uppercase tracking-wider transition-all duration-200">
+                {t("dashboard.paste_adif")}
+              </button>
             </div>
+
+            {showPasteAdif && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setShowPasteAdif(false)}>
+                <div className="bg-[#121212] border border-zinc-800 w-full max-w-lg p-6 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} data-testid="paste-adif-modal">
+                  <h3 className="font-display text-lg font-semibold tracking-tight uppercase text-zinc-100 mb-2">{t("dashboard.paste_adif_title")}</h3>
+                  <p className="text-xs text-zinc-500 font-mono mb-4">{t("dashboard.paste_adif_desc")}</p>
+                  <textarea
+                    data-testid="paste-adif-textarea"
+                    value={pasteContent}
+                    onChange={(e) => setPasteContent(e.target.value)}
+                    placeholder={t("dashboard.paste_adif_placeholder")}
+                    rows={10}
+                    className="w-full bg-[#09090b] border border-zinc-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-zinc-100 font-mono text-xs px-3 py-2 placeholder:text-zinc-600 resize-none mb-4"
+                  />
+                  <div className="flex gap-2">
+                    <Button onClick={async () => {
+                      if (!pasteContent.trim()) { toast.error(t("dashboard.paste_adif_empty")); return; }
+                      try {
+                        const { data } = await axios.post(`${API}/qso/import/adif-text`, { content: pasteContent, logbook: activeLogbook });
+                        toast.success(`${data.imported} ${t("dashboard.imported")}${data.skipped ? `, ${data.skipped} ${t("dashboard.skipped")}` : ""}`);
+                        fetchGrouped(); fetchStats();
+                        setPasteContent(""); setShowPasteAdif(false);
+                      } catch (err) {
+                        const detail = err.response?.data?.detail;
+                        toast.error(typeof detail === "string" ? detail : t("dashboard.import_error"));
+                      }
+                    }} data-testid="paste-adif-submit"
+                      className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none h-10 text-xs">
+                      {t("dashboard.paste_adif_import")}
+                    </Button>
+                    <Button onClick={() => { setShowPasteAdif(false); setPasteContent(""); }}
+                      className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 uppercase tracking-wider rounded-none h-10 text-xs">
+                      {t("common.cancel")}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <button onClick={() => { setAddCallsign(""); setShowAddModal(true); }} data-testid="fab-add-qso"
               className="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 hover:bg-amber-600 text-black flex items-center justify-center shadow-lg shadow-amber-500/20 transition-all duration-200 z-20">

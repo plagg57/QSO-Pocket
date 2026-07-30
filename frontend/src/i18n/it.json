@@ -96,7 +96,13 @@
     "support_qso_pocket": "Sostieni QSO Pocket",
     "support_message": "Grazie per sostenere lo sviluppo di QSO Pocket!\n\nOgni donazione aiuta a migliorare l'app e finanziare l'hosting.",
     "created_by": "Creato da F4MVD (Jonathan Zils)",
-    "import_wrong_file": "Seleziona un file .adi o .adif"
+    "import_wrong_file": "Seleziona un file .adi o .adif",
+    "paste_adif": "Incolla contenuto ADIF",
+    "paste_adif_title": "Importa incollando",
+    "paste_adif_desc": "Apri il tuo file .adi con un editor di testo, copia tutto il contenuto e incollalo qui.",
+    "paste_adif_placeholder": "Incolla il contenuto ADIF qui...",
+    "paste_adif_import": "Importa",
+    "paste_adif_empty": "Incolla del contenuto ADIF"
   },
   "qso": {
     "new_qso": "Nuovo QSO",
