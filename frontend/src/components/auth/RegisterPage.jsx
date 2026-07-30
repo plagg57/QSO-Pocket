@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { UserPlus, IdentificationCard, Envelope, Lock, Broadcast, Headphones } from "@phosphor-icons/react";
+import { UserPlus, IdentificationCard, Envelope, Lock, Eye, EyeSlash } from "@phosphor-icons/react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -24,6 +24,7 @@ export default function RegisterPage({ onSwitch }) {
   const [userType, setUserType] = useState("");
   const [noCallsign, setNoCallsign] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -119,7 +120,13 @@ export default function RegisterPage({ onSwitch }) {
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2"><Lock size={14} /> {t("auth.password")}</Label>
-                <Input data-testid="register-password-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("auth.password_min")} className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm" />
+                <div className="relative">
+                  <Input data-testid="register-password-input" type={showPwd ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("auth.password_min")} className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm pr-10" />
+                  <button type="button" onClick={() => setShowPwd(!showPwd)} data-testid="toggle-password-register"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-500 hover:text-zinc-300 transition-colors">
+                    {showPwd ? <EyeSlash size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
               <Button data-testid="register-submit-button" type="submit" disabled={loading}
                 className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none h-12 transition-all duration-200 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]">

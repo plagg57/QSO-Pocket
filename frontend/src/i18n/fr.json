@@ -41,7 +41,9 @@
     "callsign_cb_placeholder": "Votre indicatif",
     "callsign_swl_placeholder": "Votre indicatif",
     "swl_temp_id_desc": "QSO Pocket vous attribuera un identifiant SWL temporaire. Vous pourrez le remplacer à tout moment par votre indicatif SWL officiel.",
-    "swl_france_info": "Si votre pays délivre des indicatifs SWL officiels, vous pouvez en faire la demande auprès de l'organisme compétent.\nEn France, vous pouvez demander un identifiant SWL auprès de Radioamateurs France."
+    "swl_france_info": "Si votre pays délivre des indicatifs SWL officiels, vous pouvez en faire la demande auprès de l'organisme compétent.\nEn France, vous pouvez demander un identifiant SWL auprès de Radioamateurs France.",
+    "show_password": "Afficher",
+    "hide_password": "Masquer"
   },
   "forgot": {
     "title": "Mot de passe oublié",
@@ -126,7 +128,10 @@
     "delete_error": "Erreur suppression",
     "edited": "QSO modifié",
     "edit_error": "Erreur modification",
-    "add_contact_with": "Ajouter un contact avec"
+    "add_contact_with": "Ajouter un contact avec",
+    "wrong_logbook_confirm": "Cet indicatif semble appartenir à un {{logbook}}. Voulez-vous enregistrer ce QSO dans ce carnet à la place ?",
+    "looks_like_ham": "Cet indicatif ressemble à un indicatif radioamateur.",
+    "looks_like_cb": "Cet indicatif ressemble à un indicatif CB."
   },
   "detail": {
     "back_to_list": "Retour à la liste",

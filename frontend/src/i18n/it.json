@@ -41,7 +41,9 @@
     "callsign_cb_placeholder": "Il tuo nominativo",
     "callsign_swl_placeholder": "Il tuo nominativo",
     "swl_temp_id_desc": "QSO Pocket ti assegnerà un identificativo SWL temporaneo. Potrai sostituirlo in qualsiasi momento con il tuo nominativo SWL ufficiale.",
-    "swl_france_info": "Se nel tuo paese vengono rilasciati nominativi SWL ufficiali, ti consigliamo di richiederne uno presso l'organizzazione nazionale competente."
+    "swl_france_info": "Se nel tuo paese vengono rilasciati nominativi SWL ufficiali, ti consigliamo di richiederne uno presso l'organizzazione nazionale competente.",
+    "show_password": "Mostra",
+    "hide_password": "Nascondi"
   },
   "forgot": {
     "title": "Password dimenticata",
@@ -120,7 +122,10 @@
     "delete_error": "Errore eliminazione",
     "edited": "QSO modificato",
     "edit_error": "Errore modifica",
-    "add_contact_with": "Aggiungi contatto con"
+    "add_contact_with": "Aggiungi contatto con",
+    "wrong_logbook_confirm": "Questo nominativo sembra appartenere a un {{logbook}}. Vuoi salvare questo QSO in quel logbook?",
+    "looks_like_ham": "Questo nominativo sembra un nominativo radioamatore.",
+    "looks_like_cb": "Questo nominativo sembra un nominativo CB."
   },
   "detail": {
     "back_to_list": "Torna alla lista",

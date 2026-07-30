@@ -10,7 +10,7 @@ import { getFlagUrl, getCountryName } from "@/utils/callsignFlags";
 import { getBand } from "@/utils/bands";
 import AddQSOModal from "@/components/qso/AddQSOModal";
 
-export default function ContactDetail({ callsign, onBack }) {
+export default function ContactDetail({ callsign, onBack, logbook }) {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Plus, X, IdentificationCard, CalendarBlank, Clock, Broadcast, User, Pencil } from "@phosphor-icons/react";
+import { Plus, X, IdentificationCard, CalendarBlank, Clock, Broadcast, User, Pencil, ArrowsLeftRight } from "@phosphor-icons/react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,20 @@ import { addPendingQSO } from "@/utils/offlineQueue";
 
 const CB_MODES = ["FM", "SSB", "AM"];
 
-export default function AddQSOModal({ callsign, prefillName, onClose, onAdded, logbook = "radioamateur" }) {
+// ITU amateur radio format: 1-2 letters + 1 digit + 1-4 letters (with optional /portable)
+const AMATEUR_REGEX = /^([A-Z]{1,2}[0-9]|[0-9][A-Z]{1,2}[0-9])[A-Z]{1,4}(\/[A-Z0-9]{1,4})?$/;
+// CB format: starts with digits (country code) + mix of letters/digits
+const CB_REGEX = /^[0-9]{1,3}[A-Z]{1,4}[0-9]{1,5}$/;
+
+function detectCallsignType(cs) {
+  if (!cs || cs.length < 3) return null;
+  const upper = cs.toUpperCase().trim();
+  if (AMATEUR_REGEX.test(upper)) return "radioamateur";
+  if (CB_REGEX.test(upper)) return "cb";
+  return null;
+}
+
+export default function AddQSOModal({ callsign, prefillName, onClose, onAdded, logbook = "radioamateur", onSwitchLogbook }) {
   const { t } = useTranslation();
   const now = new Date();
   const utcHH = String(now.getUTCHours()).padStart(2, "0");
@@ -36,6 +49,19 @@ export default function AddQSOModal({ callsign, prefillName, onClose, onAdded, l
     rst_received: "",
   });
   const [dupInfo, setDupInfo] = useState(null);
+  const [suggestedLogbook, setSuggestedLogbook] = useState(null);
+
+  // Detect if callsign belongs to a different logbook
+  useEffect(() => {
+    const cs = formData.callsign.toUpperCase().trim();
+    if (cs.length < 3 || logbook === "swl") { setSuggestedLogbook(null); return; }
+    const detected = detectCallsignType(cs);
+    if (detected && detected !== logbook) {
+      setSuggestedLogbook(detected);
+    } else {
+      setSuggestedLogbook(null);
+    }
+  }, [formData.callsign, logbook]);
 
   useEffect(() => {
     const handleEscape = (e) => { if (e.key === "Escape") onClose(); };
@@ -59,6 +85,32 @@ export default function AddQSOModal({ callsign, prefillName, onClose, onAdded, l
     e.preventDefault();
     if (!formData.callsign || !formData.date || !formData.frequency) {
       toast.error(t("qso.fill_required")); return;
+    }
+    // If there's a suggested logbook and user hasn't dismissed it, ask confirmation
+    if (suggestedLogbook && onSwitchLogbook) {
+      const targetLabel = suggestedLogbook === "radioamateur" ? t("logbook.radioamateur") : t("logbook.cb");
+      if (window.confirm(t("qso.wrong_logbook_confirm", { logbook: targetLabel }))) {
+        // Save in the suggested logbook instead
+        const payload = {
+          ...formData,
+          callsign: formData.callsign.toUpperCase(),
+          frequency: parseFloat(formData.frequency),
+          logbook: suggestedLogbook,
+        };
+        try {
+          await axios.post(`${API}/qso`, payload);
+          toast.success(t("qso.saved"));
+          onSwitchLogbook(suggestedLogbook);
+          onAdded();
+          onClose();
+        } catch (error) {
+          if (!error.response || error.response.status === 503) {
+            try { await addPendingQSO(payload); toast.success(t("offline.qso_queued")); onAdded(); onClose(); }
+            catch { toast.error(t("common.error")); }
+          } else { toast.error(formatApiError(error.response?.data?.detail)); }
+        }
+        return;
+      }
     }
     const payload = {
       ...formData,
@@ -114,6 +166,14 @@ export default function AddQSOModal({ callsign, prefillName, onClose, onAdded, l
             {dupInfo && (
               <div className="text-xs font-mono text-amber-500 bg-amber-500/10 border border-amber-500/20 px-3 py-2" data-testid="dup-warning">
                 {t("qso.already_contacted")} ({dupInfo.count}x) — {t("qso.last_on")} : {new Date(dupInfo.last_date).toLocaleDateString()}
+              </div>
+            )}
+            {suggestedLogbook && (
+              <div className="text-xs font-mono bg-blue-500/10 border border-blue-500/30 px-3 py-2 flex items-center gap-2" data-testid="logbook-suggestion">
+                <ArrowsLeftRight size={14} className="text-blue-400 shrink-0" />
+                <span className="text-blue-400">
+                  {suggestedLogbook === "radioamateur" ? t("qso.looks_like_ham") : t("qso.looks_like_cb")}
+                </span>
               </div>
             )}
           </div>

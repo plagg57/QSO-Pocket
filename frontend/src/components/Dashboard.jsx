@@ -308,7 +308,7 @@ export default function Dashboard() {
             )}
 
             <div className="mt-3 mb-20">
-              <input type="file" accept=".adi,.adif,.ADI,.ADIF" id="adif-import-input" className="hidden"
+              <input type="file" accept=".adi,.adif,.ADI,.ADIF,application/octet-stream,*/*" id="adif-import-input" className="hidden"
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
@@ -352,7 +352,7 @@ export default function Dashboard() {
         )}
 
         {showAddModal && (
-          <AddQSOModal callsign={addCallsign} logbook={activeLogbook} onClose={() => setShowAddModal(false)} onAdded={handleAdded} />
+          <AddQSOModal callsign={addCallsign} logbook={activeLogbook} onClose={() => setShowAddModal(false)} onAdded={handleAdded} onSwitchLogbook={switchLogbook} />
         )}
       </div>
     </div>

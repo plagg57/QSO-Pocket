@@ -41,7 +41,9 @@
     "callsign_cb_placeholder": "Your callsign",
     "callsign_swl_placeholder": "Your callsign",
     "swl_temp_id_desc": "QSO Pocket will assign you a temporary SWL identifier. You can replace it at any time with your official SWL callsign.",
-    "swl_france_info": "If official SWL callsigns are available in your country, we recommend obtaining one from the appropriate national organization."
+    "swl_france_info": "If official SWL callsigns are available in your country, we recommend obtaining one from the appropriate national organization.",
+    "show_password": "Show",
+    "hide_password": "Hide"
   },
   "forgot": {
     "title": "Forgot password",
@@ -126,7 +128,10 @@
     "delete_error": "Delete error",
     "edited": "QSO edited",
     "edit_error": "Edit error",
-    "add_contact_with": "Add a contact with"
+    "add_contact_with": "Add a contact with",
+    "wrong_logbook_confirm": "This callsign looks like it belongs to a {{logbook}}. Would you like to save this QSO in that logbook instead?",
+    "looks_like_ham": "This callsign looks like a ham radio callsign.",
+    "looks_like_cb": "This callsign looks like a CB callsign."
   },
   "detail": {
     "back_to_list": "Back to list",

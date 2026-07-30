@@ -41,7 +41,9 @@
     "callsign_cb_placeholder": "Ihr Rufzeichen",
     "callsign_swl_placeholder": "Ihr Rufzeichen",
     "swl_temp_id_desc": "QSO Pocket erstellt für Sie eine temporäre SWL-Kennung. Sie können diese jederzeit durch Ihr offizielles SWL-Rufzeichen ersetzen.",
-    "swl_france_info": "Falls in Ihrem Land offizielle SWL-Rufzeichen verfügbar sind, empfehlen wir, eines bei der zuständigen nationalen Organisation zu beantragen."
+    "swl_france_info": "Falls in Ihrem Land offizielle SWL-Rufzeichen verfügbar sind, empfehlen wir, eines bei der zuständigen nationalen Organisation zu beantragen.",
+    "show_password": "Anzeigen",
+    "hide_password": "Ausblenden"
   },
   "forgot": {
     "title": "Passwort vergessen",
@@ -120,7 +122,10 @@
     "delete_error": "Löschfehler",
     "edited": "QSO bearbeitet",
     "edit_error": "Bearbeitungsfehler",
-    "add_contact_with": "Kontakt hinzufügen mit"
+    "add_contact_with": "Kontakt hinzufügen mit",
+    "wrong_logbook_confirm": "Dieses Rufzeichen scheint zu einem {{logbook}} zu gehören. Möchten Sie dieses QSO stattdessen in diesem Logbuch speichern?",
+    "looks_like_ham": "Dieses Rufzeichen sieht wie ein Amateurfunk-Rufzeichen aus.",
+    "looks_like_cb": "Dieses Rufzeichen sieht wie ein CB-Rufzeichen aus."
   },
   "detail": {
     "back_to_list": "Zurück zur Liste",
