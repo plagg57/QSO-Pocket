@@ -1,0 +1,46 @@
+{
+  "summary": "Tested offline-mode fix (v2.0.0). 11/12 test items PASS. Login caches user data (qso_user_cache), grouped QSOs (qso_cache_grouped_radioamateur, 7 rows), and stats (qso_cache_stats_radioamateur, {total_qsos:10, total_callsigns:7}) to localStorage. Going offline: offline-banner appears, user stays logged in (no redirect), all 7 callsign-rows remain visible from cache, no /auth/me call fails. Going back online: banner disappears. ONE BUG FOUND: when a network request is retried while offline (e.g., changing band-filter), the Service Worker returns a 503 response with body {error:'offline'}, which axios treats as a real HTTP response with error.response.status=503. Dashboard.jsx fetchGrouped/fetchStats only fall back to cache silently when `!error.response`, so the 503 from SW bypasses the silent-fallback branch and triggers toast.error('An error occurred').",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Offline error handling (Dashboard band-filter refetch while offline)",
+        "issue": "Toast 'An error occurred' shows when offline because Service Worker returns HTTP 503 (with body {error:'offline'}) for uncached GETs. In Dashboard.jsx lines 104-113 and 122-129, the silent-cache fallback branch is guarded by `if (!error.response)`, but a SW-generated 503 IS a response, so it falls through to the `else if (error.response?.status !== 401)` toast branch. Fix: also treat 503 with body {error:'offline'} as offline (e.g., `if (!error.response || error.response?.status === 503 && error.response?.data?.error === 'offline')`), OR change SW to reject (throw) instead of returning 503 when nothing cached, OR make Dashboard check navigator.onLine before showing toast.",
+        "affected_selectors": ["[data-sonner-toast]", "[data-testid='band-filter']"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_results": {
+    "login_online": "PASS - admin@example.com/admin123 login works, dashboard loads",
+    "qso_user_cache_populated": "PASS - localStorage['qso_user_cache'] contains {id, email, callsign:F0ADMIN, role:admin}",
+    "qso_cache_grouped_populated": "PASS - localStorage['qso_cache_grouped_radioamateur'] has 7 entries",
+    "qso_cache_stats_populated": "PASS - localStorage['qso_cache_stats_radioamateur'] = {total_qsos:10, total_callsigns:7}",
+    "offline_banner_appears": "PASS - [data-testid='offline-banner'] visible after context.set_offline(true)",
+    "user_stays_logged_in_offline": "PASS - app-header still visible, URL still /, no redirect to login",
+    "qsos_visible_offline_from_cache": "PASS - 7 callsign-row elements still rendered while offline",
+    "no_error_toasts_offline": "FAIL - 'An error occurred' toast shown when band-filter triggers refetch and SW returns 503",
+    "offline_banner_disappears_online": "PASS - banner hidden after context.set_offline(false)",
+    "qsos_still_visible_after_back_online": "PASS - 7 rows",
+    "pending_qso_sync": "NOT TESTED - no pending QSOs to sync (offline creates weren't triggered)",
+    "register_page_password_toggle": "NOT VERIFIED - Register link click did not navigate in test (register_page marked UNKNOWN); recommend main agent self-verify or re-run"
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix silent-offline error handling in /app/frontend/src/components/Dashboard.jsx (fetchGrouped + fetchStats): treat SW-503 offline responses the same as network errors. Suggested minimal patch: `const isOffline = !error.response || (error.response.status === 503 && error.response.data?.error === 'offline'); if (isOffline) { /* load cache silently */ } else if (error.response?.status !== 401) { toast.error(...) }`. Same pattern should be applied everywhere GET calls are made (ContactDetail, Admin, Profile) if offline usage is expected."
+  ],
+  "critical_code_review_comments": [
+    "Service Worker returns a 503 Response for uncached GETs when offline. This is semantically a valid response and defeats axios error interceptors that rely on `!error.response` to detect offline. Consider throwing/rejecting the fetch in the SW instead, or use a distinctive header/status like 599 that Dashboard code can whitelist.",
+    "Dashboard.jsx (432 lines) mixes many responsibilities (QSO list, stats, ADIF import/export, paste modal, profile/admin switching). Consider splitting into subcomponents.",
+    "syncPendingQSOs uses `useCallback([t, refreshPendingCount])` but references fetchGrouped/fetchStats which are declared later — relies on the eslint-disable to work; move sync after fetch declarations or use refs to avoid subtle stale-closure risks."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only)", "frontend": "83% (10/12 verified PASS, 1 FAIL, 1 not tested)"},
+  "test_credentials": "admin@example.com / admin123 (works)",
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Login inputs use data-testid='login-email-input' (type=text, accepts email OR callsign) and 'login-password-input'. Simulate offline via `page.context.set_offline(True)` then dispatch 'offline' event so React's useOnlineStatus hook triggers (navigator.onLine alone doesn't fire the event in Playwright reliably). SW at /public/sw.js caches GET /api/* and returns 503 offline — this is the source of the false error toast.",
+  "rca of the issue": "Root cause of the false error toast offline: Service Worker (public/sw.js lines 35-45) responds with `new Response(JSON.stringify({error:'offline'}), {status:503})` when no cached response exists for a GET /api/* request. Axios treats a 503 as a completed request with a response object. Dashboard.jsx (lines 104-113 and 122-129) only enters the silent cache-fallback branch when `!error.response` (true network error) — the 503 sees `error.response.status === 503`, skips the fallback, and hits `else if (error.response?.status !== 401) toast.error(...)`. Reproduction: 1) login online, 2) set_offline(true), 3) change band-filter to '20m' (triggers refetch with a URL that isn't in SW cache) → toast 'An error occurred' appears. Mitigation: whitelist status 503 with body.error==='offline' in Dashboard error branches, OR change SW to reject the fetch promise instead of returning a synthetic 503."
+}

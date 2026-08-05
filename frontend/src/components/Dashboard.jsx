@@ -97,8 +97,20 @@ export default function Dashboard() {
       params.append("logbook", activeLogbook);
       const res = await axios.get(`${API}/qso/grouped?${params.toString()}`);
       setGrouped(res.data);
+      // Cache for offline use (only cache unfiltered results)
+      if (!searchTerm && !bandFilter) {
+        try { localStorage.setItem(`qso_cache_grouped_${activeLogbook}`, JSON.stringify(res.data)); } catch {}
+      }
     } catch (error) {
-      if (error.response?.status !== 401) toast.error(t("common.error"));
+      // If offline, load from cache silently (no error toast)
+      if (!error.response) {
+        try {
+          const cached = localStorage.getItem(`qso_cache_grouped_${activeLogbook}`);
+          if (cached) { setGrouped(JSON.parse(cached)); }
+        } catch {}
+      } else if (error.response?.status !== 401) {
+        toast.error(t("common.error"));
+      }
     } finally { setLoading(false); }
   }, [searchTerm, bandFilter, activeLogbook, t]);
 
@@ -106,7 +118,16 @@ export default function Dashboard() {
     try {
       const res = await axios.get(`${API}/qso/stats/total?logbook=${activeLogbook}`);
       setStats(res.data);
-    } catch {}
+      try { localStorage.setItem(`qso_cache_stats_${activeLogbook}`, JSON.stringify(res.data)); } catch {}
+    } catch (error) {
+      // If offline, load from cache
+      if (!error.response) {
+        try {
+          const cached = localStorage.getItem(`qso_cache_stats_${activeLogbook}`);
+          if (cached) { setStats(JSON.parse(cached)); }
+        } catch {}
+      }
+    }
   }, [activeLogbook]);
 
   useEffect(() => { fetchGrouped(); fetchStats(); }, [fetchGrouped, fetchStats]);

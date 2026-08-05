@@ -238,7 +238,8 @@
     "synced": "QSO in attesa sincronizzati",
     "sync_error": "Errore sincronizzazione offline",
     "pending": "QSO in attesa",
-    "back_online": "Di nuovo online"
+    "back_online": "Di nuovo online",
+    "cached_data": "Dati offline"
   },
   "logbook": {
     "radioamateur": "📡 Radioamatore",

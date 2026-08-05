@@ -238,7 +238,8 @@
     "synced": "ausstehende(s) QSO(s) synchronisiert",
     "sync_error": "Offline-Sync-Fehler",
     "pending": "ausstehende(s) QSO(s)",
-    "back_online": "Wieder online"
+    "back_online": "Wieder online",
+    "cached_data": "Offline-Daten"
   },
   "logbook": {
     "radioamateur": "📡 Amateurfunk",

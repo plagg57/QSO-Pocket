@@ -244,6 +244,7 @@
     "synced": "QSO(s) en attente synchronisé(s)",
     "sync_error": "Erreur sync hors ligne",
     "pending": "QSO(s) en attente",
-    "back_online": "Connexion rétablie"
+    "back_online": "Connexion rétablie",
+    "cached_data": "Données hors ligne"
   }
 }

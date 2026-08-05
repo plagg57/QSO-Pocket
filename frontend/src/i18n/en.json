@@ -244,6 +244,7 @@
     "synced": "pending QSO(s) synced",
     "sync_error": "Offline sync error",
     "pending": "pending QSO(s)",
-    "back_online": "Back online"
+    "back_online": "Back online",
+    "cached_data": "Offline data"
   }
 }
