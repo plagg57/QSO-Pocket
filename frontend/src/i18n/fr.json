@@ -102,7 +102,14 @@
     "paste_adif_desc": "Ouvrez votre fichier .adi avec un éditeur texte, copiez tout le contenu et collez-le ici.",
     "paste_adif_placeholder": "Collez le contenu ADIF ici...\n\n<ADIF_VER:5>3.1.4\n<EOH>\n<CALL:5>F4MVD...",
     "paste_adif_import": "Importer",
-    "paste_adif_empty": "Veuillez coller du contenu ADIF"
+    "paste_adif_empty": "Veuillez coller du contenu ADIF",
+    "export_select_title": "Exporter en ADIF",
+    "export_none_selected": "Aucun QSO sélectionné",
+    "export_selected": "Exporter",
+    "select_all": "Tout sélectionner",
+    "deselect_all": "Tout désélectionner",
+    "selected": "sélectionné(s)",
+    "all_dates": "Toutes les dates"
   },
   "logbook": {
     "radioamateur": "📡 Radioamateur",

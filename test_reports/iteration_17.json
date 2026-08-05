@@ -1,0 +1,41 @@
+{
+  "summary": "Post-refactor + selective ADIF export testing. Backend (modular routes) 14/14 tests PASS. Frontend flows verified: login, dashboard with 7 callsigns/10 QSOs, logbook switcher (radioamateur/cb/swl), selective ADIF export modal (10 rows, toggle-all, single-row toggle, date-filter, Export(N) count), Profile page (gear), Admin panel with 3 users + stats. All requested features work.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Header (post-login)",
+        "issues": [
+          "Sonner 'Login successful' toast is anchored top-right and visually overlaps the ADMIN button for ~3-4s. Real users can still click after the toast fades, but automated tests using force=true click the toast overlay instead of the button. Consider offsetting the toast or reducing duration.",
+          "Export modal date filter uses the native browser <input type=\"date\"> picker (mm/dd/yyyy) instead of a shadcn Calendar/DatePicker component - inconsistent with the rest of the app's styling."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_review_iter17.py",
+    "/app/test_reports/pytest/iter17.xml"
+  ],
+  "action_items": [
+    "(Optional/minor) Move Sonner Toaster position or shorten duration so it doesn't overlap header action buttons after login.",
+    "(Optional/minor) Replace native date input in the Export ADIF modal with the shadcn Calendar component for visual consistency."
+  ],
+  "critical_code_review_comments": [
+    "Dashboard.jsx is 525 lines and mixes logbook state, export modal, import modal, ADIF generation, profile/admin routing. Consider extracting ExportAdifModal into /components/qso/ExportAdifModal.jsx.",
+    "Dashboard.jsx openExportModal references `activeLogbook` declared later in the file (line 111) via TDZ-safe closure - it works because it's only invoked from callbacks after render, but this order is fragile. Move state declarations before functions that reference them.",
+    "routes/qso.py /qso/export/adif ignores query-param filtering (logbook, ids, dates). The selective export is done fully client-side in Dashboard.jsx doExport() by rebuilding ADIF text in JS - fine for now, but backend endpoint could accept ids[] for server-side selective export to avoid duplicating ADIF generation logic in two places.",
+    "routes/qso.py /qso/import/adif (file upload) does NOT set the logbook field on imported QSOs (line 273-289), while /qso/import/adif-text does. Imported QSOs via file upload will not appear in any logbook-filtered view because logbook_filter() returns {\"logbook\": <value>} match. Verify with a test - imported-via-file QSOs may be invisible after the recent logbook filter was added.",
+    "server.py startup uses on_event('startup') which is deprecated in FastAPI - migrate to lifespan handler.",
+    "AdminPanel.jsx onClick fetchUsers on searchTerm change - no debouncing, will fire on every keystroke."
+  ],
+  "updated_files": ["/app/backend/tests/test_review_iter17.py"],
+  "success_rate": {"backend": "100% (14/14)", "frontend": "100% of requested flows verified"},
+  "test_credentials": "admin@example.com / admin123 (works). Register API also validated with F4XXX-format callsigns.",
+  "seed_data_creation": "One TEST_ user registered via /api/auth/register during pytest run (F4<random> callsign).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend now modular: /app/backend/{server.py,routes/*.py,utils/*.py}. All /api endpoints still exist and pass. Selective ADIF export modal in Dashboard.jsx uses data-testids: export-adif-btn, export-adif-modal, export-date-filter, export-toggle-all, export-qso-row (multiple), export-confirm-btn, export-cancel-btn. Logbook selector is a native <select> with data-testid='logbook-selector', use page.select_option(value='cb'|'swl'|'radioamateur'). After login the Sonner 'Login successful' toast overlays the header for ~3s - either wait 3.5s before clicking header buttons OR click without force=true (Playwright will actionability-wait for the toast to clear).",
+  "rca of the issue": "Not a bug - the initial admin-button click failure during testing was caused by the Sonner login-success toast rendering on top of the ADMIN button (top-right position). Playwright's force=true bypasses actionability checks and dispatches the pointerdown on the toast overlay instead of the button, so React's onClick never fires. Fix in test: wait for toast to auto-dismiss OR omit force=true. Fix in app (optional): change Toaster position to bottom-right, or move ADMIN button away from the toast anchor."
+}

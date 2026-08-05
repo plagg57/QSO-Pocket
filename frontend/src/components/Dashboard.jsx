@@ -32,8 +32,82 @@ export default function Dashboard() {
   const [showProfile, setShowProfile] = useState(false);
   const [bandFilter, setBandFilter] = useState("");
   const [pendingCount, setPendingCount] = useState(0);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportQsos, setExportQsos] = useState([]);
+  const [exportSelected, setExportSelected] = useState(new Set());
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportDateFilter, setExportDateFilter] = useState("");
   const [showPasteAdif, setShowPasteAdif] = useState(false);
   const [pasteContent, setPasteContent] = useState("");
+
+  const openExportModal = async () => {
+    setExportLoading(true);
+    try {
+      const res = await axios.get(`${API}/qso?logbook=${activeLogbook}`);
+      setExportQsos(res.data);
+      setExportSelected(new Set(res.data.map(q => q.id)));
+      setExportDateFilter("");
+      setShowExportModal(true);
+    } catch { toast.error(t("dashboard.export_error")); }
+    finally { setExportLoading(false); }
+  };
+
+  const toggleExportSelect = (id) => {
+    setExportSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const filtered = getFilteredExportQsos();
+    const allSelected = filtered.every(q => exportSelected.has(q.id));
+    setExportSelected(prev => {
+      const next = new Set(prev);
+      filtered.forEach(q => { if (allSelected) next.delete(q.id); else next.add(q.id); });
+      return next;
+    });
+  };
+
+  const getFilteredExportQsos = () => {
+    if (!exportDateFilter) return exportQsos;
+    return exportQsos.filter(q => q.date === exportDateFilter);
+  };
+
+  const doExport = async () => {
+    const toExport = exportQsos.filter(q => exportSelected.has(q.id));
+    if (toExport.length === 0) { toast.error(t("dashboard.export_none_selected")); return; }
+
+    let adif = "ADIF Export from QSO Pocket\n";
+    adif += "<ADIF_VER:5>3.1.4\n<PROGRAMID:10>QSO_POCKET\n<PROGRAMVERSION:3>1.0\n<EOH>\n\n";
+    for (const qso of toExport) {
+      const af = (name, val) => { if (!val) return ""; const v = String(val); return `<${name}:${v.length}>${v}`; };
+      let rec = "";
+      rec += af("CALL", qso.callsign);
+      if (qso.date) rec += af("QSO_DATE", qso.date.replace(/-/g, ""));
+      if (qso.time_utc) rec += af("TIME_ON", qso.time_utc.replace(":", ""));
+      if (qso.frequency) rec += af("FREQ", qso.frequency.toFixed(6));
+      const band = getBand(qso.frequency);
+      if (band) rec += af("BAND", band);
+      if (qso.mode) rec += af("MODE", qso.mode);
+      if (qso.name) rec += af("NAME", qso.name);
+      if (qso.comment) rec += af("COMMENT", qso.comment);
+      rec += af("MY_CALLSIGN", user?.callsign || "");
+      if (qso.qsl_sent) rec += af("QSL_SENT", "Y");
+      if (qso.qsl_received) rec += af("QSL_RCVD", "Y");
+      if (qso.rst_sent) rec += af("RST_SENT", qso.rst_sent);
+      if (qso.rst_received) rec += af("RST_RCVD", qso.rst_received);
+      rec += "<EOR>\n";
+      adif += rec + "\n";
+    }
+    const filename = `${(user?.callsign || "qso").replace("/", "_")}_log.adi`;
+    const result = await exportAdifFile(adif, filename);
+    if (result.success) {
+      toast.success(`${toExport.length} ${t("dashboard.exported")} — ${result.message}`);
+      setShowExportModal(false);
+    } else { toast.error(result.message); }
+  };
   const [activeLogbook, setActiveLogbook] = useState(() => {
     const saved = localStorage.getItem("qso_active_logbook");
     if (saved && ["radioamateur", "cb", "swl"].includes(saved)) return saved;
@@ -286,50 +360,65 @@ export default function Dashboard() {
             </div>
 
             {stats.total_qsos > 0 && (
-              <button onClick={async () => {
-                try {
-                  const res = await axios.get(`${API}/qso?logbook=${activeLogbook}`);
-                  const qsos = res.data;
-                  
-                  let adif = "ADIF Export from QSO Pocket\n";
-                  adif += "<ADIF_VER:5>3.1.4\n<PROGRAMID:10>QSO_POCKET\n<PROGRAMVERSION:3>1.0\n<EOH>\n\n";
-                  
-                  for (const qso of qsos) {
-                    const af = (name, val) => { if (!val) return ""; const v = String(val); return `<${name}:${v.length}>${v}`; };
-                    let rec = "";
-                    rec += af("CALL", qso.callsign);
-                    if (qso.date) rec += af("QSO_DATE", qso.date.replace(/-/g, ""));
-                    if (qso.time_utc) rec += af("TIME_ON", qso.time_utc.replace(":", ""));
-                    if (qso.frequency) rec += af("FREQ", qso.frequency.toFixed(6));
-                    const band = getBand(qso.frequency);
-                    if (band) rec += af("BAND", band);
-                    if (qso.mode) rec += af("MODE", qso.mode);
-                    if (qso.name) rec += af("NAME", qso.name);
-                    if (qso.comment) rec += af("COMMENT", qso.comment);
-                    rec += af("MY_CALLSIGN", user?.callsign || "");
-                    if (qso.qsl_sent) rec += af("QSL_SENT", "Y");
-                    if (qso.qsl_received) rec += af("QSL_RCVD", "Y");
-                    if (qso.rst_sent) rec += af("RST_SENT", qso.rst_sent);
-                    if (qso.rst_received) rec += af("RST_RCVD", qso.rst_received);
-                    rec += "<EOR>\n";
-                    adif += rec + "\n";
-                  }
-                  
-                  const filename = `${(user?.callsign || "qso").replace("/", "_")}_log.adi`;
-                  const result = await exportAdifFile(adif, filename);
-                  
-                  if (result.success) {
-                    toast.success(`${qsos.length} ${t("dashboard.exported")} — ${result.message}`);
-                  } else {
-                    toast.error(result.message);
-                  }
-                } catch {
-                  toast.error(t("dashboard.export_error"));
-                }
-              }} data-testid="export-adif-btn"
-                className="w-full mt-6 mb-20 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#121212] hover:bg-[#1a1a1a] text-zinc-300 border border-zinc-800 font-mono text-xs uppercase tracking-wider transition-all duration-200">
-                <Export size={16} className="text-amber-500" /> {t("dashboard.export_adif")}
+              <button onClick={openExportModal} disabled={exportLoading} data-testid="export-adif-btn"
+                className="w-full mt-6 mb-2 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#121212] hover:bg-[#1a1a1a] text-zinc-300 border border-zinc-800 font-mono text-xs uppercase tracking-wider transition-all duration-200">
+                <Export size={16} className="text-amber-500" /> {exportLoading ? "..." : t("dashboard.export_adif")}
               </button>
+            )}
+
+            {showExportModal && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setShowExportModal(false)}>
+                <div className="bg-[#121212] border border-zinc-800 w-full max-w-lg max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()} data-testid="export-adif-modal">
+                  <div className="p-5 border-b border-zinc-800 shrink-0">
+                    <h3 className="font-display text-lg font-semibold tracking-tight uppercase text-zinc-100 mb-3 flex items-center gap-2">
+                      <Export size={20} className="text-amber-500" /> {t("dashboard.export_select_title")}
+                    </h3>
+                    <div className="flex items-center gap-3">
+                      <input type="date" value={exportDateFilter} onChange={(e) => setExportDateFilter(e.target.value)} data-testid="export-date-filter"
+                        className="flex-1 bg-[#09090b] border border-zinc-700 text-zinc-100 font-mono text-xs px-3 py-1.5 focus:border-amber-500" />
+                      {exportDateFilter && (
+                        <button onClick={() => setExportDateFilter("")} className="text-xs text-zinc-500 hover:text-amber-500 font-mono">{t("dashboard.all_dates")}</button>
+                      )}
+                      <button onClick={toggleSelectAll} data-testid="export-toggle-all"
+                        className="text-xs font-mono text-amber-500 hover:text-amber-400 shrink-0 border border-amber-500/30 px-3 py-1.5">
+                        {getFilteredExportQsos().every(q => exportSelected.has(q.id)) ? t("dashboard.deselect_all") : t("dashboard.select_all")}
+                      </button>
+                    </div>
+                    <div className="text-xs text-zinc-500 font-mono mt-2">
+                      {exportSelected.size} / {exportQsos.length} {t("dashboard.selected")}
+                    </div>
+                  </div>
+                  <div className="overflow-y-auto flex-1">
+                    {getFilteredExportQsos().map((qso) => (
+                      <label key={qso.id} className="flex items-center gap-3 px-5 py-2.5 hover:bg-[#1a1a1a] cursor-pointer border-b border-zinc-800/30" data-testid="export-qso-row">
+                        <input type="checkbox" checked={exportSelected.has(qso.id)} onChange={() => toggleExportSelect(qso.id)}
+                          className="w-4 h-4 accent-amber-500 shrink-0" />
+                        <div className="flex-1 min-w-0 font-mono text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="text-amber-500 font-bold">{qso.callsign}</span>
+                            <span className="text-zinc-400">{qso.name}</span>
+                          </div>
+                          <div className="text-zinc-500 flex gap-3">
+                            <span>{qso.date}{qso.time_utc ? ` ${qso.time_utc}` : ""}</span>
+                            <span>{qso.frequency?.toFixed(3)} MHz</span>
+                            <span>{qso.mode}</span>
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="p-4 border-t border-zinc-800 flex gap-2 shrink-0">
+                    <Button onClick={doExport} data-testid="export-confirm-btn"
+                      className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-bold uppercase tracking-wider rounded-none h-10 text-xs">
+                      {t("dashboard.export_selected")} ({exportSelected.size})
+                    </Button>
+                    <Button onClick={() => setShowExportModal(false)}
+                      className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 uppercase tracking-wider rounded-none h-10 text-xs px-6">
+                      {t("common.cancel")}
+                    </Button>
+                  </div>
+                </div>
+              </div>
             )}
 
             <div className="mt-3 mb-20 space-y-2">

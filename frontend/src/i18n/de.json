@@ -102,7 +102,14 @@
     "paste_adif_desc": "Öffnen Sie Ihre .adi-Datei mit einem Texteditor, kopieren Sie den gesamten Inhalt und fügen Sie ihn hier ein.",
     "paste_adif_placeholder": "ADIF-Inhalt hier einfügen...",
     "paste_adif_import": "Importieren",
-    "paste_adif_empty": "Bitte ADIF-Inhalt einfügen"
+    "paste_adif_empty": "Bitte ADIF-Inhalt einfügen",
+    "export_select_title": "ADIF exportieren",
+    "export_none_selected": "Keine QSOs ausgewählt",
+    "export_selected": "Exportieren",
+    "select_all": "Alle auswählen",
+    "deselect_all": "Alle abwählen",
+    "selected": "ausgewählt",
+    "all_dates": "Alle Daten"
   },
   "qso": {
     "new_qso": "Neues QSO",

@@ -102,7 +102,14 @@
     "paste_adif_desc": "Open your .adi file with a text editor, copy all the content and paste it here.",
     "paste_adif_placeholder": "Paste ADIF content here...\n\n<ADIF_VER:5>3.1.4\n<EOH>\n<CALL:5>W1AW...",
     "paste_adif_import": "Import",
-    "paste_adif_empty": "Please paste ADIF content"
+    "paste_adif_empty": "Please paste ADIF content",
+    "export_select_title": "Export ADIF",
+    "export_none_selected": "No QSOs selected",
+    "export_selected": "Export",
+    "select_all": "Select all",
+    "deselect_all": "Deselect all",
+    "selected": "selected",
+    "all_dates": "All dates"
   },
   "logbook": {
     "radioamateur": "📡 Ham Radio",
