@@ -102,8 +102,9 @@ export default function Dashboard() {
         try { localStorage.setItem(`qso_cache_grouped_${activeLogbook}`, JSON.stringify(res.data)); } catch {}
       }
     } catch (error) {
-      // If offline, load from cache silently (no error toast)
-      if (!error.response) {
+      // If offline (network error OR SW 503 offline response), load from cache silently
+      const isOffline = !error.response || (error.response?.status === 503 && error.response?.data?.error === "offline");
+      if (isOffline) {
         try {
           const cached = localStorage.getItem(`qso_cache_grouped_${activeLogbook}`);
           if (cached) { setGrouped(JSON.parse(cached)); }
@@ -121,7 +122,8 @@ export default function Dashboard() {
       try { localStorage.setItem(`qso_cache_stats_${activeLogbook}`, JSON.stringify(res.data)); } catch {}
     } catch (error) {
       // If offline, load from cache
-      if (!error.response) {
+      const isOffline = !error.response || (error.response?.status === 503 && error.response?.data?.error === "offline");
+      if (isOffline) {
         try {
           const cached = localStorage.getItem(`qso_cache_stats_${activeLogbook}`);
           if (cached) { setStats(JSON.parse(cached)); }
