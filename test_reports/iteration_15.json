@@ -1,0 +1,35 @@
+{
+  "summary": "Verified QSO logbook auto-migration and Paste ADIF modal. Backend startup migrated 14ABC564 from radioamateur to CB (log confirms '1 moved to CB, 0 moved to Radioamateur'). All 4 backend API tests PASSED and all 8 frontend test items PASSED.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_results": {
+    "backend_startup_migration_log": "PASS - 'QSO logbook migration: 1 moved to CB, 0 moved to Radioamateur' present in backend logs",
+    "cb_stats_total": "PASS - GET /api/qso/stats/total?logbook=cb -> total_qsos=1 (14ABC564)",
+    "ham_stats_total": "PASS - GET /api/qso/stats/total?logbook=radioamateur -> total_qsos=10, no CB callsigns",
+    "cb_qso_list_contains_14ABC564": "PASS - GET /api/qso?logbook=cb returns ['14ABC564']",
+    "ham_qso_list_excludes_14ABC564": "PASS - Ham list contains only amateur callsigns (TEST1, DL1AB, EA3BCD, G4XYZ, F4ABC, F6TEST, F4MVD)",
+    "frontend_login": "PASS - admin@example.com / admin123 login works",
+    "frontend_ham_view_no_cb": "PASS - Radioamateur logbook view does NOT contain '14ABC564'",
+    "frontend_cb_view_shows_cb": "PASS - After switching logbook-selector to 'cb', view contains '14ABC564'",
+    "frontend_import_buttons_visible": "PASS - Both import-adif-btn (label) and paste-adif-btn visible after scrolling",
+    "frontend_paste_modal_opens": "PASS - Clicking paste-adif-btn opens paste-adif-modal with textarea, IMPORT (paste-adif-submit) and CANCEL buttons",
+    "frontend_paste_modal_cancel": "PASS - Clicking Cancel closes the modal"
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_logbook_migration.py",
+    "/app/test_reports/pytest/migration_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Migration runs on every backend startup and scans all QSOs unconditionally - acceptable for small dataset but consider making it idempotent-safe via a one-time migration flag if QSO count grows large.",
+    "Ham stats endpoint returns total_qsos=10 but total_callsigns=7 (some duplicates like DL1AB, F4ABC, F6TEST appear multiple times) - by design, informational only."
+  ],
+  "updated_files": ["/app/backend/tests/test_logbook_migration.py"],
+  "success_rate": {"backend": "100% (4/4)", "frontend": "100% (8/8)"},
+  "test_credentials": "admin@example.com / admin123 (works)",
+  "seed_data_creation": "None - used existing seeded QSOs",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Auth is Bearer token via access_token in login response body (no auth cookie set - only cloudflare __cf_bm cookie). Add Authorization: Bearer <token> header for API tests. Logbook-selector on dashboard is a <select> element with values 'radioamateur' and 'cb'. Paste ADIF modal has data-testids: paste-adif-btn, paste-adif-modal, paste-adif-textarea, paste-adif-submit. Cancel button matched by role name='Cancel'.",
+  "rca of the issue": "N/A - feature verification, no bugs found"
+}
