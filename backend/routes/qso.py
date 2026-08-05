@@ -251,7 +251,7 @@ async def export_adif(request: Request, token: Optional[str] = None):
     )
 
 @router.post("/import/adif")
-async def import_adif(request: Request, file: UploadFile = File(...)):
+async def import_adif(request: Request, file: UploadFile = File(...), logbook: Optional[str] = "radioamateur"):
     logger.info(f"=== ADIF IMPORT called, filename: {file.filename}, content_type: {file.content_type} ===")
     user = await get_current_user(request)
     content = await file.read()
@@ -264,6 +264,7 @@ async def import_adif(request: Request, file: UploadFile = File(...)):
     if not qsos:
         raise HTTPException(status_code=400, detail="Aucun QSO trouve dans le fichier ADIF")
 
+    lb = logbook if logbook in VALID_LOGBOOKS else "radioamateur"
     imported = 0
     skipped = 0
     for qso in qsos:
@@ -283,6 +284,7 @@ async def import_adif(request: Request, file: UploadFile = File(...)):
             "qsl_received": qso.get("qsl_received", False),
             "rst_sent": qso.get("rst_sent", ""),
             "rst_received": qso.get("rst_received", ""),
+            "logbook": lb,
             "owner_id": user["id"],
             "owner_callsign": user["callsign"],
             "created_at": datetime.now(timezone.utc).isoformat()

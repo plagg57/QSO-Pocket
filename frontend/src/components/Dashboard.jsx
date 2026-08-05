@@ -39,6 +39,14 @@ export default function Dashboard() {
   const [exportDateFilter, setExportDateFilter] = useState("");
   const [showPasteAdif, setShowPasteAdif] = useState(false);
   const [pasteContent, setPasteContent] = useState("");
+  const [activeLogbook, setActiveLogbook] = useState(() => {
+    const saved = localStorage.getItem("qso_active_logbook");
+    if (saved && ["radioamateur", "cb", "swl"].includes(saved)) return saved;
+    const userType = user?.user_type;
+    if (userType === "cibiste") return "cb";
+    if (userType === "swl") return "swl";
+    return "radioamateur";
+  });
 
   const openExportModal = async () => {
     setExportLoading(true);
@@ -108,15 +116,6 @@ export default function Dashboard() {
       setShowExportModal(false);
     } else { toast.error(result.message); }
   };
-  const [activeLogbook, setActiveLogbook] = useState(() => {
-    const saved = localStorage.getItem("qso_active_logbook");
-    if (saved && ["radioamateur", "cb", "swl"].includes(saved)) return saved;
-    // Default to user's type for new users
-    const userType = user?.user_type;
-    if (userType === "cibiste") return "cb";
-    if (userType === "swl") return "swl";
-    return "radioamateur";
-  });
 
   const switchLogbook = (lb) => {
     setActiveLogbook(lb);
