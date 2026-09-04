@@ -356,6 +356,20 @@ async def get_qsos(request: Request, search: Optional[str] = None, logbook: Opti
     qsos = await db.qsos.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return qsos
 
+@router.delete("/clear/{logbook}")
+async def clear_logbook(logbook: str, request: Request):
+    """Delete ALL QSOs in a specific logbook for the current user."""
+    user = await get_current_user(request)
+    if logbook not in VALID_LOGBOOKS:
+        raise HTTPException(status_code=400, detail="Logbook invalide")
+    filters = {"owner_id": user["id"]}
+    if logbook == "radioamateur":
+        filters["$or"] = [{"logbook": "radioamateur"}, {"logbook": {"$exists": False}}]
+    else:
+        filters["logbook"] = logbook
+    result = await db.qsos.delete_many(filters)
+    return {"message": f"{result.deleted_count} QSO(s) supprime(s)", "deleted": result.deleted_count}
+
 @router.put("/{qso_id}")
 async def update_qso(qso_id: str, qso_data: QSOUpdate, request: Request):
     user = await get_current_user(request)

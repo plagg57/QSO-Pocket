@@ -158,8 +158,8 @@ export default function AddQSOModal({ callsign, prefillName, onClose, onAdded, l
                 placeholder="F4ABC" className="bg-[#09090b] border-zinc-700 text-zinc-100 rounded-none font-mono text-sm uppercase pr-16" />
               {flagUrl && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                  <img src={flagUrl} alt={countryName} className="h-4 shadow-sm" />
-                  <span className="text-xs text-zinc-500 font-mono">{countryName}</span>
+                  <img src={flagUrl} alt={countryName} className="h-4 shadow-sm" data-testid="modal-callsign-flag" />
+                  <span className="text-xs text-zinc-500 font-mono" data-testid="modal-callsign-country">{countryName}</span>
                 </div>
               )}
             </div>

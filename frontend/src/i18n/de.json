@@ -109,7 +109,12 @@
     "select_all": "Alle auswählen",
     "deselect_all": "Alle abwählen",
     "selected": "ausgewählt",
-    "all_dates": "Alle Daten"
+    "all_dates": "Alle Daten",
+    "clear_logbook": "Logbuch leeren",
+    "clear_logbook_warning": "Achtung: Alle QSOs in diesem Logbuch werden unwiderruflich geloscht. Exportieren Sie Ihr Logbuch vorher als ADIF.",
+    "clear_logbook_confirm": "Geben Sie LOSCHEN ein zur Bestatigung",
+    "clear_logbook_success": "Logbuch geleert",
+    "clear_logbook_keyword": "LOSCHEN"
   },
   "qso": {
     "new_qso": "Neues QSO",
@@ -136,7 +141,7 @@
     "delete_error": "Löschfehler",
     "edited": "QSO bearbeitet",
     "edit_error": "Bearbeitungsfehler",
-    "add_contact_with": "Kontakt hinzufügen mit",
+    "add_contact_with": "QSO hinzufügen mit",
     "wrong_logbook_confirm": "Dieses Rufzeichen scheint zu einem {{logbook}} zu gehören. Möchten Sie dieses QSO stattdessen in diesem Logbuch speichern?",
     "looks_like_ham": "Dieses Rufzeichen sieht wie ein Amateurfunk-Rufzeichen aus.",
     "looks_like_cb": "Dieses Rufzeichen sieht wie ein CB-Rufzeichen aus."

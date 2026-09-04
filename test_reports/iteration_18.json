@@ -1,0 +1,57 @@
+{
+  "summary": "Verified the 3 requested QSO Pocket improvements. Backend: new DELETE /api/qso/clear/{logbook} fully tested (7/7 new tests pass) - returns deleted count for swl/radioamateur/cb, 400 on invalid logbook, 401 without token, does not touch other logbooks, deletion persists. Frontend (public URL, admin@example.com): login+dashboard OK; AddQSOModal flag detection correct for 4G8FM=PH, CR7ABC=PT, DU1ABC=PH, BY1ABC=CN with NO false 'looks like CB' warning (CB warning still correctly fires for 14ABC123); 'Vider le carnet'/'Clear logbook' button visible at bottom when QSOs exist and hidden when count=0; double confirmation (confirm -> prompt keyword) verified for dismiss, wrong-keyword and full-success paths (cleared CB logbook, ham logbook untouched, 'Logbook cleared' toast shown); ContactDetail shows compact 3-column stats with third block labelled 'QSO' (not 'Total contacts'), 'Ajouter un QSO avec TEST1' / 'Add a QSO with TEST1' label, 34x34px edit/delete buttons with 1px zinc borders that hover to amber/red, history entries with 2px left border that turns amber (rgba(245,158,11,0.4)) on hover and prominent date + amber UTC time. Edit button click opens inline edit form. Both FR and EN locales verified. No console/API errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/wavelog/import", "issue": "Pre-existing/unrelated: returns 502 for admin because a leftover wavelog_config row from an earlier test run makes the endpoint call an unreachable external Wavelog URL. Stale DB state, not a code bug (test_pwa_wavelog.py assumes 'not configured' -> 400)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Dashboard - Clear logbook",
+        "issues": [
+          "Double confirmation uses native window.confirm + window.prompt instead of the app's styled dark modals - visually inconsistent with the rest of QSO Pocket.",
+          "The confirmation keyword is locale-dependent (SUPPRIMER in FR, DELETE in EN). A user who switches language mid-session can be confused; consider a single language-independent keyword or a typed-callsign confirmation."
+        ]
+      },
+      {
+        "screen": "ContactDetail",
+        "issues": [
+          "Minor: for a single-QSO contact the page leaves a very large empty area below the history card (no min-height/filler) - purely cosmetic."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_clear_logbook.py",
+    "/app/test_reports/pytest/iter18.xml"
+  ],
+  "action_items": [
+    "No functional fixes required for the 3 requested improvements - all verified working.",
+    "(Optional) Replace native confirm/prompt in the clear-logbook flow with a styled modal and a locale-independent confirmation keyword.",
+    "(Housekeeping) Legacy test files contain contradictory/stale-state assumptions: test_logbook_filter.py expects admin's CB logbook to be EMPTY while test_logbook_migration.py expects it to contain 14ABC564; test_callsign_validation.py registers hardcoded callsigns (F4ABC, W1AX, 9A1CCC, VE3ABC, DL1ZZ) that are already taken so it fails on re-run. These 9 failures are test-data issues, not app bugs - they should be rewritten with randomized data/self-contained fixtures."
+  ],
+  "critical_code_review_comments": [
+    "routes/qso.py: route ordering is safe today because DELETE /qso/clear/{logbook} is declared after DELETE /qso/{qso_id}? No - it is declared after, so a DELETE to /qso/clear/... could in principle be matched by /qso/{qso_id} first. FastAPI matched /clear/{logbook} correctly here only because the path has two segments. Still, move /clear/{logbook} above /{qso_id} for clarity/safety.",
+    "routes/qso.py clear_logbook has no safeguard against a missing/omitted logbook and no audit log; consider logger.warning with user id and deleted count for such a destructive endpoint.",
+    "callsignFlags.js sorts the module-level CALLSIGN_PREFIX_MAP in place at import time (side effect). It works, but prefix lookup is a linear scan over ~350 entries on every keystroke/render; a 2-char then 1-char map lookup would be O(1).",
+    "Dashboard.jsx is now ~530 lines and still mixes export/import/clear logic; extract ExportAdifModal and the clear-logbook action into separate components (repeat of iteration-17 comment)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_clear_logbook.py (new)",
+    "/app/backend/tests/test_review_iter17.py (env fallback to /app/frontend/.env)",
+    "/app/backend/tests/test_auth_no_cookies.py (env fallback)",
+    "/app/backend/tests/test_logbooks.py (letters-only random callsign suffix - hex suffixes were rejected by callsign validation)",
+    "/app/frontend/src/components/qso/AddQSOModal.jsx (added data-testid=modal-callsign-flag / modal-callsign-country on the flag shown in the callsign input; no logic change)"
+  ],
+  "success_rate": {"backend": "100% on the reviewed endpoints (7/7 new + 39/39 related regression). Whole suite 76/85 - the 9 failures are stale legacy test-data assumptions, unrelated to this review.", "frontend": "100% of requested flows verified"},
+  "seed_data_creation": "One throwaway user registered via /api/auth/register for the destructive clear tests (test_clear_<rand>@test.com). Admin's CB seed QSO 14ABC564 was deleted by the full clear-logbook UI test and has been recreated identically (date 2025-06-15, 27.555 FM, name 'Test CB'); admin ham logbook untouched (7 callsigns / 10 QSOs).",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "admin@example.com / admin123 (F0ADMIN) - works",
+  "context_for_next_testing_agent": "New test file /app/backend/tests/test_clear_logbook.py registers its own throwaway user - never clear the admin logbook via API/UI, it holds the 10 seeded ham QSOs and the CB QSO 14ABC564 that test_logbook_migration.py asserts on. New data-testids: modal-callsign-flag / modal-callsign-country (AddQSOModal flag; note the dashboard callsign rows also have data-testid='callsign-flag', so always scope flag assertions to [data-testid=\"add-qso-modal\"]). clear-logbook-btn triggers native window.confirm then window.prompt (keyword SUPPRIMER in FR, DELETE in EN) - handle both dialogs with page.once('dialog', ...) chaining. Sonner login toast still overlays the header for ~3s; wait ~4s after login.",
+  "rca_of_the_issue": "Initial flag assertions appeared to fail (fr.png) only because data-testid='callsign-flag' is duplicated between the dashboard callsign rows and the modal flag; scoping/renaming the testid showed the DXCC lookup returns ph/pt/cn correctly. AMATEUR_REGEX second alternative [0-9][A-Z]{1,2}[0-9] matches 4G8 in 4G8FM, so 4G8FM is classified as amateur and no CB suggestion is shown - confirmed in the UI."
+}

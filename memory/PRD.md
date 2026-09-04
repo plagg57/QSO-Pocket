@@ -16,16 +16,18 @@ QSO Pocket is a multi-user, mobile-friendly radio logbook supporting **Radioamat
 - Multi-callsign profile: manage Radio, CB, SWL callsigns on one account
 - QSO CRUD with auto band calculation from frequency
 - Callsign grouping with history, anti-duplicate detection
-- Country flag detection from 150+ amateur radio prefixes
-- **Selective ADIF Export**: modal with checkboxes, select all/deselect, date filter, export only selected QSOs
+- **Comprehensive DXCC/ITU prefix database** (~350+ prefixes) with country flag detection
+- Selective ADIF Export: modal with checkboxes, select all/deselect, date filter
 - ADIF Import per logbook (file upload + paste text fallback)
+- **Clear logbook**: delete all QSOs in a logbook with double confirmation
 - Wavelog API bidirectional sync
 - Admin Panel (global summary)
 - Internationalization (i18n) — FR, EN, DE, IT
 - PWA offline mode with auto-sync
 - Real email sending for password reset via Resend
-- **Modular backend architecture** (routes/, utils/)
-- **Capacitor configured** for Google Play (Android)
+- Modular backend architecture (routes/, utils/)
+- Capacitor configured for Google Play (Android)
+- **Improved ContactDetail**: compact stats, bigger edit/delete buttons, better visual hierarchy
 
 ## Architecture
 ```
@@ -33,7 +35,7 @@ QSO Pocket is a multi-user, mobile-friendly radio logbook supporting **Radioamat
 ├── server.py               (~120 lines - orchestrator, startup, CORS)
 ├── routes/
 │   ├── auth.py             (register, login, password reset, callsign mgmt)
-│   ├── qso.py              (CRUD, grouped, export/import ADIF)
+│   ├── qso.py              (CRUD, grouped, export/import ADIF, clear logbook)
 │   ├── admin.py            (admin stats, user mgmt)
 │   └── wavelog.py          (wavelog sync, config, import)
 ├── utils/
@@ -47,7 +49,7 @@ QSO Pocket is a multi-user, mobile-friendly radio logbook supporting **Radioamat
 ├── context/AuthContext.jsx  (auth with offline caching)
 ├── components/
 │   ├── shared.jsx          (LanguageSelector, OfflineBanner)
-│   ├── Dashboard.jsx       (logbook selector, export modal, stats)
+│   ├── Dashboard.jsx       (logbook selector, export modal, clear logbook, stats)
 │   ├── auth/               (LoginPage, RegisterPage, Forgot, Reset)
 │   ├── qso/                (AddQSOModal, ContactDetail)
 │   ├── profile/            (ProfilePage, WavelogSection)
@@ -63,7 +65,7 @@ QSO Pocket is a multi-user, mobile-friendly radio logbook supporting **Radioamat
 ## Deployment
 - Frontend: Vercel | Backend: Render | DB: MongoDB
 - CORS: allow_credentials=False, Bearer token auth only (no cookies)
-- Capacitor: appId=com.qsopocket.app, webDir=build
+- Capacitor: appId=com.qsopocket.app, webDir=build, capacitor.config.json
 
 ## Upcoming Tasks
 - P3: QSO Map (carte des pays contactés)

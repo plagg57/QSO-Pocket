@@ -1,8 +1,15 @@
 """Tests for multi-logbook feature: user types (radioamateur/cibiste/swl) and logbook filtering."""
 import os
+import random
+import string
 import uuid
 import pytest
 import requests
+
+
+def _letters(n=6):
+    """Letters-only suffix (callsign validation rejects digits mid-suffix)."""
+    return "".join(random.choice(string.ascii_uppercase) for _ in range(n))
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://radio-memory.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
@@ -28,7 +35,7 @@ def admin_headers(admin_token):
 
 class TestRegistration:
     def test_register_radioamateur(self):
-        suffix = uuid.uuid4().hex[:6].upper()
+        suffix = _letters(6)
         payload = {
             "email": f"test_ham_{suffix}@test.local",
             "password": "test1234",
@@ -45,7 +52,7 @@ class TestRegistration:
         assert "access_token" in d
 
     def test_register_cibiste(self):
-        suffix = uuid.uuid4().hex[:6].upper()
+        suffix = _letters(6)
         payload = {
             "email": f"test_cb_{suffix}@test.local",
             "password": "test1234",
@@ -76,7 +83,7 @@ class TestRegistration:
         assert d["callsigns"]["swl"] == d["callsign"]
 
     def test_register_swl_with_callsign(self):
-        suffix = uuid.uuid4().hex[:6].upper()
+        suffix = _letters(6)
         payload = {
             "email": f"test_swl2_{suffix}@test.local",
             "password": "test1234",
@@ -125,7 +132,7 @@ class TestLoginResponse:
 class TestLogbookFilter:
     @pytest.fixture(scope="class")
     def user_ctx(self):
-        suffix = uuid.uuid4().hex[:6].upper()
+        suffix = _letters(6)
         payload = {
             "email": f"test_lb_{suffix}@test.local",
             "password": "test1234",
@@ -196,7 +203,7 @@ class TestLogbookFilter:
 
 class TestCallsignsUpdate:
     def test_update_callsigns(self):
-        suffix = uuid.uuid4().hex[:6].upper()
+        suffix = _letters(6)
         reg = requests.post(f"{API}/auth/register", json={
             "email": f"test_cm_{suffix}@test.local",
             "password": "test1234",
@@ -218,13 +225,13 @@ class TestCallsignsUpdate:
 
     def test_update_callsigns_duplicate_rejected(self):
         # Create user A
-        sA = uuid.uuid4().hex[:6].upper()
+        sA = _letters(6)
         A = requests.post(f"{API}/auth/register", json={
             "email": f"test_da_{sA}@test.local", "password": "test1234",
             "callsign": f"F7A{sA[:3]}", "user_type": "radioamateur",
         }).json()
         # Create user B
-        sB = uuid.uuid4().hex[:6].upper()
+        sB = _letters(6)
         B = requests.post(f"{API}/auth/register", json={
             "email": f"test_db_{sB}@test.local", "password": "test1234",
             "callsign": f"F7B{sB[:3]}", "user_type": "radioamateur",

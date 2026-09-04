@@ -109,7 +109,12 @@
     "select_all": "Seleziona tutto",
     "deselect_all": "Deseleziona tutto",
     "selected": "selezionati",
-    "all_dates": "Tutte le date"
+    "all_dates": "Tutte le date",
+    "clear_logbook": "Svuota logbook",
+    "clear_logbook_warning": "Attenzione: questa azione eliminera definitivamente tutti i QSO di questo logbook. Assicurati di esportare in ADIF prima di continuare.",
+    "clear_logbook_confirm": "Digita ELIMINA per confermare",
+    "clear_logbook_success": "Logbook svuotato",
+    "clear_logbook_keyword": "ELIMINA"
   },
   "qso": {
     "new_qso": "Nuovo QSO",
@@ -136,7 +141,7 @@
     "delete_error": "Errore eliminazione",
     "edited": "QSO modificato",
     "edit_error": "Errore modifica",
-    "add_contact_with": "Aggiungi contatto con",
+    "add_contact_with": "Aggiungi QSO con",
     "wrong_logbook_confirm": "Questo nominativo sembra appartenere a un {{logbook}}. Vuoi salvare questo QSO in quel logbook?",
     "looks_like_ham": "Questo nominativo sembra un nominativo radioamatore.",
     "looks_like_cb": "Questo nominativo sembra un nominativo CB."

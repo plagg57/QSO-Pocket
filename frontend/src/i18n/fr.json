@@ -109,7 +109,12 @@
     "select_all": "Tout sélectionner",
     "deselect_all": "Tout désélectionner",
     "selected": "sélectionné(s)",
-    "all_dates": "Toutes les dates"
+    "all_dates": "Toutes les dates",
+    "clear_logbook": "Vider le carnet",
+    "clear_logbook_warning": "Attention : cette action supprimera definitivement tous les QSO enregistres dans ce carnet. Pensez a exporter votre carnet en ADIF avant de continuer.",
+    "clear_logbook_confirm": "Tapez SUPPRIMER pour confirmer",
+    "clear_logbook_success": "Carnet vide",
+    "clear_logbook_keyword": "SUPPRIMER"
   },
   "logbook": {
     "radioamateur": "📡 Radioamateur",
@@ -142,7 +147,7 @@
     "delete_error": "Erreur suppression",
     "edited": "QSO modifié",
     "edit_error": "Erreur modification",
-    "add_contact_with": "Ajouter un contact avec",
+    "add_contact_with": "Ajouter un QSO avec",
     "wrong_logbook_confirm": "Cet indicatif semble appartenir à un {{logbook}}. Voulez-vous enregistrer ce QSO dans ce carnet à la place ?",
     "looks_like_ham": "Cet indicatif ressemble à un indicatif radioamateur.",
     "looks_like_cb": "Cet indicatif ressemble à un indicatif CB."

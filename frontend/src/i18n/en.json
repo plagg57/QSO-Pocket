@@ -109,7 +109,12 @@
     "select_all": "Select all",
     "deselect_all": "Deselect all",
     "selected": "selected",
-    "all_dates": "All dates"
+    "all_dates": "All dates",
+    "clear_logbook": "Clear logbook",
+    "clear_logbook_warning": "Warning: this will permanently delete all QSOs in this logbook. Make sure to export your logbook to ADIF before continuing.",
+    "clear_logbook_confirm": "Type DELETE to confirm",
+    "clear_logbook_success": "Logbook cleared",
+    "clear_logbook_keyword": "DELETE"
   },
   "logbook": {
     "radioamateur": "📡 Ham Radio",
@@ -142,7 +147,7 @@
     "delete_error": "Delete error",
     "edited": "QSO edited",
     "edit_error": "Edit error",
-    "add_contact_with": "Add a contact with",
+    "add_contact_with": "Add a QSO with",
     "wrong_logbook_confirm": "This callsign looks like it belongs to a {{logbook}}. Would you like to save this QSO in that logbook instead?",
     "looks_like_ham": "This callsign looks like a ham radio callsign.",
     "looks_like_cb": "This callsign looks like a CB callsign."

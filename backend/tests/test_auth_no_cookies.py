@@ -3,7 +3,11 @@ import os
 import pytest
 import requests
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL').rstrip('/')
+from dotenv import dotenv_values
+_url = os.environ.get('REACT_APP_BACKEND_URL') or dotenv_values('/app/frontend/.env').get('REACT_APP_BACKEND_URL')
+if not _url:
+    raise RuntimeError('REACT_APP_BACKEND_URL missing')
+BASE_URL = _url.rstrip('/')
 API = f"{BASE_URL}/api"
 
 ADMIN_EMAIL = "admin@example.com"

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { MagnifyingGlass, Plus, SignOut, CaretRight, ArrowLeft, Export, Gear } from "@phosphor-icons/react";
+import { MagnifyingGlass, Plus, SignOut, CaretRight, ArrowLeft, Export, Gear, Trash } from "@phosphor-icons/react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
@@ -499,6 +499,22 @@ export default function Dashboard() {
             </button>
 
             <div className="mt-8 mb-24 space-y-4">
+              {stats.total_qsos > 0 && (
+                <button onClick={async () => {
+                  if (!window.confirm(t("dashboard.clear_logbook_warning"))) return;
+                  const keyword = t("dashboard.clear_logbook_keyword");
+                  const input = window.prompt(t("dashboard.clear_logbook_confirm"));
+                  if (input !== keyword) return;
+                  try {
+                    await axios.delete(`${API}/qso/clear/${activeLogbook}`);
+                    toast.success(t("dashboard.clear_logbook_success"));
+                    fetchGrouped(); fetchStats();
+                  } catch { toast.error(t("common.error")); }
+                }} data-testid="clear-logbook-btn"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#121212] hover:bg-red-500/10 text-red-400/70 hover:text-red-400 border border-zinc-800 hover:border-red-500/30 font-mono text-xs uppercase tracking-wider transition-all duration-200">
+                  <Trash size={14} /> {t("dashboard.clear_logbook")}
+                </button>
+              )}
               <button onClick={() => {
                 if (window.confirm(t("dashboard.support_message"))) {
                   window.open("https://paypal.me/JonathanZils", "_blank");

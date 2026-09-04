@@ -109,13 +109,13 @@ export default function ContactDetail({ callsign, onBack, logbook }) {
         </div>
       ) : (
         <>
-          <div className="bg-[#121212] border border-zinc-800/80 p-5 sm:p-6 mb-4">
-            <div className="flex items-center gap-3 mb-2">
+          <div className="bg-[#121212] border border-zinc-800/80 p-4 sm:p-5 mb-4">
+            <div className="flex items-center gap-3 mb-1.5">
               {getFlagUrl(data.callsign, 32) && <img src={getFlagUrl(data.callsign, 32)} alt={getCountryName(data.callsign)} className="h-5 shadow-sm" />}
               <div className="text-3xl sm:text-4xl font-bold text-amber-500 font-mono amber-glow" data-testid="detail-callsign">{data.callsign}</div>
             </div>
             {getCountryName(data.callsign) && <div className="text-xs text-zinc-500 font-mono uppercase tracking-wider mb-1">{getCountryName(data.callsign)}</div>}
-            <div className="flex items-center gap-2 mb-6">
+            <div className="flex items-center gap-2 mb-4">
               {editingName ? (
                 <div className="flex items-center gap-2 flex-1">
                   <Input value={nameValue} onChange={(e) => setNameValue(e.target.value)} placeholder={t("detail.name_placeholder")}
@@ -133,18 +133,18 @@ export default function ContactDetail({ callsign, onBack, logbook }) {
                 </>
               )}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-[#09090b] border border-zinc-800 p-4">
-                <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1 flex items-center gap-1"><CalendarBlank size={12} /> {t("detail.first_contact")}</div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-[#09090b] border border-zinc-800 px-3 py-2.5">
+                <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500 mb-0.5 flex items-center gap-1"><CalendarBlank size={10} /> {t("detail.first_contact")}</div>
                 <div className="text-sm text-zinc-200 font-mono" data-testid="detail-first-contact">{formatDate(data.first_contact)}</div>
               </div>
-              <div className="bg-[#09090b] border border-zinc-800 p-4">
-                <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1 flex items-center gap-1"><Clock size={12} /> {t("detail.last_contact")}</div>
+              <div className="bg-[#09090b] border border-zinc-800 px-3 py-2.5">
+                <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500 mb-0.5 flex items-center gap-1"><Clock size={10} /> {t("detail.last_contact")}</div>
                 <div className="text-sm text-zinc-200 font-mono" data-testid="detail-last-contact">{formatDate(data.last_contact)}</div>
               </div>
-              <div className="bg-[#09090b] border border-zinc-800 p-4">
-                <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1 flex items-center gap-1"><Hash size={12} /> {t("detail.total_contacts")}</div>
-                <div className="text-2xl font-bold text-amber-500 font-mono" data-testid="detail-total-contacts">{data.total_contacts}</div>
+              <div className="bg-[#09090b] border border-zinc-800 px-3 py-2.5">
+                <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500 mb-0.5 flex items-center gap-1"><Hash size={10} /> QSO</div>
+                <div className="text-xl font-bold text-amber-500 font-mono" data-testid="detail-total-contacts">{data.total_contacts}</div>
               </div>
             </div>
           </div>
@@ -160,7 +160,7 @@ export default function ContactDetail({ callsign, onBack, logbook }) {
             </div>
             <div className="divide-y divide-zinc-800/50">
               {sortedHistory.map((qso) => (
-                <div key={qso.id} className="p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors" data-testid="history-entry">
+                <div key={qso.id} className="p-4 sm:px-5 hover:bg-[#1a1a1a] transition-colors border-l-2 border-transparent hover:border-amber-500/40" data-testid="history-entry">
                   {editingQsoId === qso.id ? (
                     <div className="space-y-3">
                       <div className="grid grid-cols-3 gap-3">
@@ -231,31 +231,28 @@ export default function ContactDetail({ callsign, onBack, logbook }) {
                     </div>
                   ) : (
                     <>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 font-mono text-sm">
-                          <div>
-                            <span className="text-zinc-500 text-xs">{t("qso.date")}</span>
-                            <div className="text-zinc-200">{formatDate(qso.date)}{qso.time_utc ? ` ${qso.time_utc} UTC` : ""}</div>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3 mb-1.5">
+                            <span className="text-sm font-bold text-zinc-100 font-mono">{formatDate(qso.date)}</span>
+                            {qso.time_utc && <span className="text-sm text-amber-500/80 font-mono">{qso.time_utc} UTC</span>}
                           </div>
-                          <div>
-                            <span className="text-zinc-500 text-xs">{t("qso.frequency")}</span>
-                            <div className="text-zinc-200">{qso.frequency.toFixed(3)} MHz{getBand(qso.frequency) ? ` (${getBand(qso.frequency)})` : ""}</div>
-                          </div>
-                          <div>
-                            <span className="text-zinc-500 text-xs">{t("qso.mode")}</span>
-                            <div className="text-zinc-200">{qso.mode || "—"}</div>
-                          </div>
-                          <div>
-                            <span className="text-zinc-500 text-xs">RST</span>
-                            <div className="text-zinc-200">{qso.rst_sent || "—"} / {qso.rst_received || "—"}</div>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-mono">
+                            <span className="text-zinc-300">{qso.frequency.toFixed(3)} MHz{getBand(qso.frequency) ? ` (${getBand(qso.frequency)})` : ""}</span>
+                            {qso.mode && <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-bold uppercase">{qso.mode}</span>}
+                            {(qso.rst_sent || qso.rst_received) && (
+                              <span className="text-zinc-400">RST {qso.rst_sent || "—"} / {qso.rst_received || "—"}</span>
+                            )}
                           </div>
                         </div>
-                        <div className="flex flex-col gap-1 ml-2 shrink-0">
-                          <button onClick={() => startEditQso(qso)} className="p-1.5 text-zinc-600 hover:text-amber-500 transition-colors" data-testid="edit-qso-btn">
-                            <Pencil size={14} />
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button onClick={() => startEditQso(qso)} data-testid="edit-qso-btn"
+                            className="p-2 text-zinc-500 hover:text-amber-500 hover:bg-amber-500/10 border border-zinc-800 hover:border-amber-500/30 transition-all">
+                            <Pencil size={16} />
                           </button>
-                          <button onClick={() => handleDelete(qso.id)} className="p-1.5 text-zinc-600 hover:text-red-500 transition-colors" data-testid="delete-history-entry-btn">
-                            <Trash size={14} />
+                          <button onClick={() => handleDelete(qso.id)} data-testid="delete-history-entry-btn"
+                            className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 border border-zinc-800 hover:border-red-500/30 transition-all">
+                            <Trash size={16} />
                           </button>
                         </div>
                       </div>
@@ -265,7 +262,7 @@ export default function ContactDetail({ callsign, onBack, logbook }) {
                         </div>
                       )}
                       {(qso.qsl_sent || qso.qsl_received) && (
-                        <div className="mt-1 flex gap-3 text-[10px] font-mono uppercase tracking-wider">
+                        <div className="mt-1.5 flex gap-3 text-[10px] font-mono uppercase tracking-wider">
                           {qso.qsl_sent && <span className="text-green-500">{t("qso.qsl_sent")}</span>}
                           {qso.qsl_received && <span className="text-green-500">{t("qso.qsl_received")}</span>}
                         </div>

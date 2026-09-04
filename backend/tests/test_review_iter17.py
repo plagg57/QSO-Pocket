@@ -4,7 +4,12 @@ import time
 import requests
 import pytest
 
-BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/") + "/api"
+from dotenv import dotenv_values
+_env = dotenv_values("/app/frontend/.env")
+_url = os.environ.get("REACT_APP_BACKEND_URL") or _env.get("REACT_APP_BACKEND_URL")
+if not _url:
+    raise RuntimeError("REACT_APP_BACKEND_URL missing")
+BASE = _url.rstrip("/") + "/api"
 ADMIN_EMAIL = "admin@example.com"
 ADMIN_PASSWORD = "admin123"
 
